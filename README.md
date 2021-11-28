@@ -2,6 +2,12 @@
 
 Offline e2e encryption CLI
 
+It allows to manage a list of friend  and encrypt messages using the related public key.
+
+The encrypted message is a JWS signed with the identity private key encrypted in a JWE using the friend public key.
+
+The recipient (friend) has to have the sender (identity) public key registered in his friend list to verify the message signature.
+
 ## Commands ##
 
 ### Create an identity ###
