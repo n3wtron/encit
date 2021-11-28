@@ -37,6 +37,8 @@ pub enum EncItError {
     IdentityAlreadyExist(),
     #[error("Invalid command: {0}")]
     InvalidCommand(String),
+    #[error("GenericError: {0}")]
+    GenericError(String),
 }
 
 impl From<ConfigError> for EncItError {
@@ -84,5 +86,11 @@ impl From<FromHexError> for EncItError {
 impl From<serde_yaml::Error> for EncItError {
     fn from(err: serde_yaml::Error) -> Self {
         EncItError::ConfigurationError(err.to_string())
+    }
+}
+
+impl From<Box<dyn std::error::Error>> for EncItError {
+    fn from(err: Box<dyn std::error::Error>) -> Self {
+        EncItError::GenericError(err.to_string())
     }
 }

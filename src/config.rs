@@ -67,6 +67,7 @@ pub struct EncItPrivateKey {
     password: Option<String>,
 }
 
+#[allow(dead_code)]
 impl EncItPrivateKey {
     pub fn new(key: EncItPEM, password: Option<String>) -> Self {
         EncItPrivateKey { key, password }
@@ -81,16 +82,8 @@ impl EncItPrivateKey {
         Ok(rsa_key)
     }
 
-    pub fn der(&self) -> Result<Vec<u8>, EncItError> {
-        self.rsa_key()?.private_key_to_der().map_err(|e| e.into())
-    }
-
     pub fn pem(&self) -> Result<Vec<u8>, EncItError> {
         self.rsa_key()?.private_key_to_pem().map_err(|e| e.into())
-    }
-
-    pub fn hex_pem(&self) -> Result<String, EncItError> {
-        Ok(format!("{:x?}", self.pem()?))
     }
 
     pub fn public_key_pem(&self) -> Result<Vec<u8>, EncItError> {
@@ -109,10 +102,12 @@ pub struct EncItIdentity {
     private_key: EncItPrivateKey,
 }
 
+#[allow(dead_code)]
 impl EncItIdentity {
     pub fn new(name: String, private_key: EncItPrivateKey) -> Self {
         EncItIdentity { name, private_key }
     }
+
     pub fn name(&self) -> &str {
         &self.name
     }
@@ -128,6 +123,7 @@ pub struct EncItFriend {
     public_key: EncItPEM,
 }
 
+#[allow(dead_code)]
 impl EncItFriend {
     pub fn new(name: String, public_key: EncItPEM) -> Self {
         EncItFriend { name, public_key }
@@ -152,20 +148,20 @@ pub trait EncItConfig {
         &'a self,
         identity_public_key_hex: &str,
     ) -> Option<&'a EncItFriend>;
-    fn friends<'a>(&'a self) -> &Vec<EncItFriend>;
-    fn add_friend<'a>(
+    fn friends(&self) -> &Vec<EncItFriend>;
+    fn add_friend(
         &self,
         friend_name: &str,
         public_key: &EncItPEM,
     ) -> Result<Box<dyn EncItConfig>, EncItError>;
-    fn add_identity<'a, 'b>(
+    fn add_identity<'b>(
         &self,
         identity_name: &str,
         private_key: &EncItPEM,
         passphrase: Option<&'b str>,
     ) -> Result<Box<dyn EncItConfig>, EncItError>;
-    fn identities<'a>(&'a self) -> &Vec<EncItIdentity>;
-    fn save<'a>(&'a self) -> Result<(), EncItError>;
+    fn identities(&self) -> &Vec<EncItIdentity>;
+    fn save(&self) -> Result<(), EncItError>;
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -337,7 +333,7 @@ mod tests {
     fn add_friend_test() -> Result<(), EncItError> {
         let mut cfg_file = tempfile::Builder::new().suffix(".yml").tempfile().unwrap();
         write!(cfg_file, "{}", VALID_CFG_CNT).expect("error writing cfg file");
-        let mut cfg = EncItConfigImpl::load(cfg_file.path())?;
+        let cfg = EncItConfigImpl::load(cfg_file.path())?;
         let new_friend_pub_key_hex = hex::encode(Rsa::generate(2048)?.public_key_to_pem()?);
 
         let new_cfg =
@@ -356,7 +352,7 @@ mod tests {
     fn add_identity_test() -> Result<(), EncItError> {
         let mut cfg_file = tempfile::Builder::new().suffix(".yml").tempfile().unwrap();
         write!(cfg_file, "{}", VALID_CFG_CNT).expect("error writing cfg file");
-        let mut cfg = EncItConfigImpl::load(cfg_file.path())?;
+        let cfg = EncItConfigImpl::load(cfg_file.path())?;
         let pem_pwd = "identity-pwd";
         let new_identity_private_key = hex::encode(
             Rsa::generate(2048)?
@@ -383,10 +379,10 @@ mod tests {
     fn save_test() -> Result<(), EncItError> {
         let mut cfg_file = tempfile::Builder::new().suffix(".yml").tempfile().unwrap();
         write!(cfg_file, "{}", VALID_CFG_CNT).expect("error writing cfg file");
-        let mut cfg = EncItConfigImpl::load(cfg_file.path())?;
+        let cfg = EncItConfigImpl::load(cfg_file.path())?;
         let new_friend_pub_key_hex = hex::encode(Rsa::generate(2048)?.public_key_to_pem()?);
-        cfg.add_friend("new-friend", &EncItPEM::Hex(new_friend_pub_key_hex))?;
-        cfg.save()?;
+        cfg.add_friend("new-friend", &EncItPEM::Hex(new_friend_pub_key_hex))?
+            .save()?;
 
         cfg_file.rewind()?;
         let mut new_cfg_content = String::new();

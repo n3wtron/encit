@@ -5,7 +5,6 @@ use josekit::{jwt, Value};
 use log::debug;
 use serde::{Deserialize, Serialize};
 use std::rc::Rc;
-use std::str::FromStr;
 use std::string::String;
 
 use crate::config::{EncItConfig, EncItFriend, EncItIdentity};
@@ -20,6 +19,7 @@ pub struct EncItMessage {
     verified: bool,
 }
 
+#[allow(dead_code)]
 impl EncItMessage {
     pub fn sender(&self) -> &str {
         &self.sender
