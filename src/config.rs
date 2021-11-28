@@ -86,6 +86,13 @@ impl EncItPrivateKey {
         self.rsa_key()?.private_key_to_pem().map_err(|e| e.into())
     }
 
+    pub fn hex(&self) -> Result<String, EncItError> {
+        self.rsa_key()?
+            .private_key_to_pem()
+            .map(hex::encode)
+            .map_err(|e| e.into())
+    }
+
     pub fn public_key_pem(&self) -> Result<Vec<u8>, EncItError> {
         self.rsa_key()?.public_key_to_pem().map_err(|e| e.into())
     }

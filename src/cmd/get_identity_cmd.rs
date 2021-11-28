@@ -31,27 +31,29 @@ pub fn get_identity_exec(
         return Err(EncItError::IdentityNotFound(identity_name.to_string()));
     }
     let identity = identity.unwrap();
-    println!("Identity: {}", identity_name);
-    let public_key = match arg_matches.value_of("format").unwrap() {
-        "pem" => identity
-            .private_key()
-            .public_key_pem()
-            .map(|pub_key_vec| String::from_utf8(pub_key_vec).unwrap())?,
-        "base64-pem" => identity
-            .private_key()
-            .public_key_pem()
-            .map(base64::encode)?,
-        _ => identity.private_key().public_key_pem_hex()?,
-    };
-    println!("Public Key: {}", public_key);
     if arg_matches.is_present("private-key") {
-        println!(
-            "Private Key: {}",
-            identity
+        let private_key = match arg_matches.value_of("format").unwrap() {
+            "pem" => identity
                 .private_key()
                 .pem()
-                .map(|pub_key_vec| String::from_utf8(pub_key_vec).unwrap())?
-        );
+                .map(|priv_key_vec| String::from_utf8(priv_key_vec).unwrap())?,
+            "base64-pem" => identity.private_key().pem().map(base64::encode)?,
+            _ => identity.private_key().hex()?,
+        };
+        println!("{}", private_key);
+    } else {
+        let public_key = match arg_matches.value_of("format").unwrap() {
+            "pem" => identity
+                .private_key()
+                .public_key_pem()
+                .map(|pub_key_vec| String::from_utf8(pub_key_vec).unwrap())?,
+            "base64-pem" => identity
+                .private_key()
+                .public_key_pem()
+                .map(base64::encode)?,
+            _ => identity.private_key().public_key_pem_hex()?,
+        };
+        println!("{}", public_key);
     }
     Ok(())
 }
