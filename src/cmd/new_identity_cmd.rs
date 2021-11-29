@@ -4,13 +4,7 @@ use openssl::rsa::Rsa;
 use std::rc::Rc;
 
 pub fn new_identity_cmd<'a>() -> App<'a, 'a> {
-    SubCommand::with_name("identity").arg(
-        Arg::with_name("name")
-            .long("name")
-            .short("n")
-            .takes_value(true)
-            .required(true),
-    )
+    SubCommand::with_name("identity").arg(Arg::with_name("name").takes_value(true).required(true))
 }
 
 pub fn new_identity_exec(
