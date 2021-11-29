@@ -21,11 +21,6 @@ pub fn add_cmd<'a>(name: &str) -> App<'a, 'a> {
                 .possible_values(&["pem", "hex-pem", "base64-pem"]),
         )
         .arg(
-            Arg::with_name("stdin")
-                .long("stdin")
-                .help("read the public key from stdin"),
-        )
-        .arg(
             Arg::with_name("key-file")
                 .takes_value(true)
                 .help("key file"),
@@ -44,18 +39,13 @@ pub fn get_key(arg_matches: &ArgMatches) -> Result<EncItPEM, EncItError> {
 }
 
 fn read_key(arg_matches: &ArgMatches) -> Result<String, EncItError> {
-    if arg_matches.is_present("stdin") {
-        let mut stdin_cnt = String::new();
-        stdin().read_to_string(&mut stdin_cnt)?;
-        Ok(stdin_cnt)
-    } else if let Some(file_path) = arg_matches.value_of("key-file") {
-        let mut file_cnt = String::new();
+    let mut file_cnt = String::new();
+    if let Some(file_path) = arg_matches.value_of("key-file") {
         let mut key_file = File::open(file_path)?;
         key_file.read_to_string(&mut file_cnt)?;
-        Ok(file_cnt)
     } else {
-        Err(EncItError::InvalidCommand(
-            "missing key-file parameter".into(),
-        ))
+        let mut stdin_cnt = String::new();
+        stdin().read_to_string(&mut stdin_cnt)?;
     }
+    Ok(file_cnt)
 }

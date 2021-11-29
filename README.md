@@ -92,7 +92,6 @@ USAGE:
 
 FLAGS:
     -h, --help       Prints help information
-        --stdin      read the public key from stdin
     -V, --version    Prints version information
 
 OPTIONS:
@@ -112,7 +111,7 @@ $ encit add friend --format pem --name my-best-friend best-friend.pub.pem
 #### Example Add friend from stdin
 
 ```bash
-$ cat my-best-friend.pub.pem | encit add friend --format pem --name my-best-friend --stdin
+$ cat my-best-friend.pub.pem | encit add friend --format pem --name my-best-friend
 ```
 
 ### Get friends
