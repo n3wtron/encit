@@ -8,6 +8,7 @@ use config::{Config, File};
 use mockall::{automock, predicate::*};
 use openssl::pkey::{Private, Public};
 use openssl::rsa::Rsa;
+use openssl::sha::Sha256;
 use serde::{Deserialize, Serialize};
 
 use crate::errors::EncItError;
@@ -57,6 +58,12 @@ impl EncItPEM {
     pub fn hex_pem(&self) -> Result<String, EncItError> {
         Ok(hex::encode(self.pem()?))
     }
+
+    pub fn sha_pem(&self) -> Result<String, EncItError> {
+        let mut sha = Sha256::new();
+        sha.update(self.pem()?.as_slice());
+        Ok(base64::encode(sha.finish()))
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -99,6 +106,12 @@ impl EncItPrivateKey {
 
     pub fn public_key_pem_hex(&self) -> Result<String, EncItError> {
         Ok(hex::encode(self.public_key_pem()?))
+    }
+
+    pub fn public_key_pem_sha(&self) -> Result<String, EncItError> {
+        let mut sha = Sha256::new();
+        sha.update(self.public_key_pem()?.as_slice());
+        Ok(base64::encode(sha.finish()))
     }
 }
 
@@ -146,12 +159,12 @@ impl EncItFriend {
 #[cfg_attr(test, automock)]
 pub trait EncItConfig {
     fn identity<'a>(&'a self, identity: &str) -> Option<&'a EncItIdentity>;
-    fn identity_by_public_key_hex<'a>(
+    fn identity_by_public_key_sha<'a>(
         &'a self,
-        identity_public_key_hex: &str,
+        identity_public_key_sha: &str,
     ) -> Option<&'a EncItIdentity>;
     fn friend<'a>(&'a self, friend: &str) -> Option<&'a EncItFriend>;
-    fn friend_by_public_key_hex<'a>(
+    fn friend_by_public_key_sha<'a>(
         &'a self,
         identity_public_key_hex: &str,
     ) -> Option<&'a EncItFriend>;
@@ -214,13 +227,13 @@ impl EncItConfig for EncItConfigImpl {
         self.identities.iter().find(|i| i.name == identity)
     }
 
-    fn identity_by_public_key_hex(&self, identity_public_key_hex: &str) -> Option<&EncItIdentity> {
+    fn identity_by_public_key_sha(&self, identity_public_key_sha: &str) -> Option<&EncItIdentity> {
         self.identities.iter().find(|identity| {
-            let pub_key_hex = identity
+            let pub_key_sha = identity
                 .private_key
-                .public_key_pem_hex()
+                .public_key_pem_sha()
                 .unwrap_or_else(|_| panic!("cannot get public key for identity {}", identity.name));
-            pub_key_hex == identity_public_key_hex
+            pub_key_sha == identity_public_key_sha
         })
     }
 
@@ -228,22 +241,18 @@ impl EncItConfig for EncItConfigImpl {
         self.friends.iter().find(|f| f.name == friend)
     }
 
-    fn friend_by_public_key_hex(&self, identity_public_key_hex: &str) -> Option<&EncItFriend> {
+    fn friend_by_public_key_sha(&self, identity_public_key_sha: &str) -> Option<&EncItFriend> {
         self.friends.iter().find(|friend| {
-            let pub_key_hex = friend
+            let pub_key_sha = friend
                 .public_key
-                .hex_pem()
+                .sha_pem()
                 .unwrap_or_else(|_| panic!("cannot get public key for identity {}", friend.name));
-            pub_key_hex == identity_public_key_hex
+            pub_key_sha == identity_public_key_sha
         })
     }
 
     fn friends(&self) -> &Vec<EncItFriend> {
         &self.friends
-    }
-
-    fn identities(&self) -> &Vec<EncItIdentity> {
-        &self.identities
     }
 
     fn add_friend<'a>(
@@ -294,6 +303,10 @@ impl EncItConfig for EncItConfigImpl {
             identities: new_identities,
             friends: self.friends.to_vec(),
         }))
+    }
+
+    fn identities(&self) -> &Vec<EncItIdentity> {
+        &self.identities
     }
 
     fn save(&self) -> Result<(), EncItError> {

@@ -66,16 +66,16 @@ fn create_jwe(
     friend: &EncItFriend,
 ) -> Result<String, EncItError> {
     let friend_pub_key = friend.public_key().pem()?;
-    let identity_pub_key = identity.private_key().public_key_pem_hex()?;
+    let identity_pub_key_sha = identity.private_key().public_key_pem_sha()?;
     let mut jwe_header = JweHeader::new();
     jwe_header.set_token_type("JWT");
     jwe_header.set_content_encryption("A128CBC-HS256");
     if let Some(subject) = subject {
         jwe_header.set_subject(subject);
     }
-    jwe_header.set_claim("rcp", Some(Value::from(friend.public_key().hex_pem()?)))?;
+    jwe_header.set_claim("rcp", Some(friend.public_key().sha_pem()?.into()))?;
     let mut payload = JwtPayload::new();
-    payload.set_issuer(identity_pub_key);
+    payload.set_issuer(identity_pub_key_sha);
     payload.set_claim("message", Some(Value::String(message.to_string())))?;
     let encrypter = RSA_OAEP.encrypter_from_pem(friend_pub_key)?;
     jwt::encode_with_encrypter(&payload, &jwe_header, &encrypter).map_err(|e| e.into())
@@ -106,8 +106,8 @@ pub fn decrypt(
         cfg.identity(identity_name)
     } else {
         let header = jwt::decode_header(jwe)?;
-        let receiver_public_key = header.claim("rcp").unwrap().as_str().unwrap();
-        cfg.identity_by_public_key_hex(receiver_public_key)
+        let receiver_public_key_sha = header.claim("rcp").unwrap().as_str().unwrap();
+        cfg.identity_by_public_key_sha(receiver_public_key_sha)
     }
     .ok_or_else(|| EncItError::IdentityNotFound(String::new()))?;
     debug!("Identity found:{}", identity.name());
@@ -116,7 +116,7 @@ pub fn decrypt(
 
     let friend = payload
         .issuer()
-        .and_then(|friend_pub_key_hex| cfg.friend_by_public_key_hex(friend_pub_key_hex))
+        .and_then(|friend_pub_key_sha| cfg.friend_by_public_key_sha(friend_pub_key_sha))
         .ok_or_else(|| {
             EncItError::FriendNotFound(
                 "cannot find a friend that match with the message public key".to_string(),
@@ -181,9 +181,10 @@ mod tests {
         let (_, identity) = generate_identity(friend_name, Some(priv_key));
         let friend = Box::leak(friend);
         let identity = Box::leak(identity);
-        let identity_public_key = Box::leak(Box::new(
-            identity.private_key().public_key_pem_hex().unwrap(),
+        let identity_public_key_sha = Box::leak(Box::new(
+            identity.private_key().public_key_pem_sha().unwrap(),
         ));
+        println!("identity public key sha:{}", identity_public_key_sha);
         let mut cfg_mock = MockEncItConfig::new();
         cfg_mock
             .expect_friend()
@@ -194,13 +195,13 @@ mod tests {
             .with(eq(friend_name))
             .returning(|_f| Some(identity));
         cfg_mock
-            .expect_identity_by_public_key_hex()
-            .with(eq(identity_public_key.as_str()))
-            .returning(|_f| Some(identity));
+            .expect_identity_by_public_key_sha()
+            .with(eq(identity_public_key_sha.as_str()))
+            .returning(|_| Some(identity));
         cfg_mock
-            .expect_friend_by_public_key_hex()
-            .with(eq(identity_public_key.as_str()))
-            .returning(|_f| Some(friend));
+            .expect_friend_by_public_key_sha()
+            .with(eq(identity_public_key_sha.as_str()))
+            .returning(|_| Some(friend));
 
         let cfg: Rc<dyn EncItConfig> = Rc::new(cfg_mock);
         let plain_message = "hello";
