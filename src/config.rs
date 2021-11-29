@@ -36,7 +36,7 @@ impl EncItPEM {
                 } else {
                     hex_pem.clone()
                 };
-                hex::decode(cleaned_hex).map_err(|e| e.into())
+                hex::decode(cleaned_hex.trim()).map_err(|e| e.into())
             }
             EncItPEM::Pem(pem) => Ok(pem.clone().into_bytes()),
         }

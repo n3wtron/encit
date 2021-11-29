@@ -107,6 +107,7 @@ pub fn decrypt(
     } else {
         let header = jwt::decode_header(jwe)?;
         let receiver_public_key_sha = header.claim("rcp").unwrap().as_str().unwrap();
+        debug!("get identity by sha:{}", receiver_public_key_sha);
         cfg.identity_by_public_key_sha(receiver_public_key_sha)
     }
     .ok_or_else(|| EncItError::IdentityNotFound(String::new()))?;
@@ -176,57 +177,75 @@ mod tests {
     #[test]
     fn encrypt_decrypt_payload() -> Result<(), EncItError> {
         env_logger::init();
-        let friend_name = "friend-1";
-        let (priv_key, friend) = generate_friend(friend_name);
-        let (_, identity) = generate_identity(friend_name, Some(priv_key));
-        let friend = Box::leak(friend);
-        let identity = Box::leak(identity);
-        let identity_public_key_sha = Box::leak(Box::new(
-            identity.private_key().public_key_pem_sha().unwrap(),
+        let encrypt_friend_name = "bob";
+        let encrypt_identity_name = "alice";
+        let (encrypt_friend_private_key, encrypt_friend) =
+            generate_friend(encrypt_friend_name, None);
+        let (encrypt_identity_private_key, encrypt_identity) =
+            generate_identity(encrypt_identity_name, None);
+        let encrypt_friend = Box::leak(encrypt_friend);
+        let encrypt_identity = Box::leak(encrypt_identity);
+        let encrypt_friend_public_key_sha =
+            Box::leak(Box::new(encrypt_friend.public_key().sha_pem().unwrap()));
+        let encrypt_identity_public_key_sha = Box::leak(Box::new(
+            encrypt_identity.private_key().public_key_pem_sha().unwrap(),
         ));
-        println!("identity public key sha:{}", identity_public_key_sha);
-        let mut cfg_mock = MockEncItConfig::new();
-        cfg_mock
+        let mut encrypt_cfg_mock = MockEncItConfig::new();
+        encrypt_cfg_mock
             .expect_friend()
-            .with(eq(friend_name))
-            .returning(|_f| Some(friend));
-        cfg_mock
+            .with(eq(encrypt_friend_name))
+            .returning(|_f| Some(encrypt_friend));
+        encrypt_cfg_mock
             .expect_identity()
-            .with(eq(friend_name))
-            .returning(|_f| Some(identity));
-        cfg_mock
-            .expect_identity_by_public_key_sha()
-            .with(eq(identity_public_key_sha.as_str()))
-            .returning(|_| Some(identity));
-        cfg_mock
-            .expect_friend_by_public_key_sha()
-            .with(eq(identity_public_key_sha.as_str()))
-            .returning(|_| Some(friend));
+            .with(eq(encrypt_identity_name))
+            .returning(|_f| Some(encrypt_identity));
 
-        let cfg: Rc<dyn EncItConfig> = Rc::new(cfg_mock);
+        let encrypt_cfg: Rc<dyn EncItConfig> = Rc::new(encrypt_cfg_mock);
         let plain_message = "hello";
 
         let enc_msg = encrypt(
-            cfg.clone(),
-            friend_name,
-            friend_name,
+            encrypt_cfg.clone(),
+            encrypt_identity_name,
+            encrypt_friend_name,
             Some("subject"),
             plain_message,
         )?;
 
-        let decrypted = decrypt(cfg, &enc_msg, None);
-        //
+        // decrypt
+        let (_, decrypt_friend) =
+            generate_friend(encrypt_identity_name, Some(encrypt_identity_private_key));
+        let (_, decrypt_identity) =
+            generate_identity(encrypt_friend_name, Some(encrypt_friend_private_key));
+        let decrypt_friend = Box::leak(decrypt_friend);
+        let decrypt_identity = Box::leak(decrypt_identity);
+        let mut decrypt_cfg_mock = MockEncItConfig::new();
+
+        decrypt_cfg_mock
+            .expect_identity_by_public_key_sha()
+            .with(eq(encrypt_friend_public_key_sha.as_str()))
+            .returning(|_| Some(decrypt_identity));
+        decrypt_cfg_mock
+            .expect_friend_by_public_key_sha()
+            .with(eq(encrypt_identity_public_key_sha.as_str()))
+            .returning(|_| Some(decrypt_friend));
+
+        let decrypt_cfg_mock: Rc<dyn EncItConfig> = Rc::new(decrypt_cfg_mock);
+        let decrypted = decrypt(decrypt_cfg_mock, &enc_msg, None);
+
         let message = decrypted?;
         assert_eq!(message.payload, plain_message);
+        assert_eq!(message.subject, Some("subject".to_string()));
         assert!(message.verified);
-        assert_eq!(message.sender, identity.name());
-        assert_eq!(message.receiver, friend.name());
-
+        assert_eq!(message.sender, encrypt_identity.name());
+        assert_eq!(message.receiver, encrypt_friend.name());
         Ok(())
     }
 
-    fn generate_friend(friend_name: &str) -> (Rsa<Private>, Box<EncItFriend>) {
-        let friend_priv_key = Rsa::generate(2048).unwrap();
+    fn generate_friend(
+        friend_name: &str,
+        key: Option<Rsa<Private>>,
+    ) -> (Rsa<Private>, Box<EncItFriend>) {
+        let friend_priv_key = key.unwrap_or_else(|| Rsa::generate(2048).unwrap());
         let friend_pub_key = friend_priv_key.public_key_to_pem().unwrap();
         let friend_pub_key_b64 = base64::encode(friend_pub_key);
         let friend = Box::new(EncItFriend::new(
