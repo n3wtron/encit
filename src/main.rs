@@ -4,7 +4,7 @@ use std::rc::Rc;
 use std::string::String;
 
 use crate::cmd::add_cmd::add_cmd;
-use crate::cmd::add_identity_cmd::add_identity_exec;
+use crate::cmd::add_identity_cmd::{add_identity_cmd, add_identity_exec};
 use crate::cmd::decrypt_cmd::{decrypt_cmd, decrypt_exec};
 use crate::cmd::encrypt_cmd::{encrypt_cmd, encrypt_exec};
 use crate::cmd::get_identity_cmd::{get_identity_cmd, get_identity_exec};
@@ -43,7 +43,7 @@ fn main() -> Result<(), EncItError> {
             SubCommand::with_name("add")
                 .about("add friend/identity to encit")
                 .subcommand(add_cmd("friend"))
-                .subcommand(add_cmd("identity")),
+                .subcommand(add_identity_cmd()),
         )
         .subcommand(
             SubCommand::with_name("new")

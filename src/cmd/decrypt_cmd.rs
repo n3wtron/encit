@@ -44,13 +44,13 @@ pub fn decrypt_exec(
 
 fn read_string_message(
     cmd_matches: &ArgMatches,
-    mut encrypted_message: &mut String,
+    encrypted_message: &mut String,
 ) -> Result<(), EncItError> {
     if let Some(file_path) = cmd_matches.value_of("file") {
         let mut fl = File::open(file_path)?;
-        fl.read_to_string(&mut encrypted_message)?;
+        fl.read_to_string(encrypted_message)?;
     } else {
-        stdin().read_to_string(&mut encrypted_message)?;
+        stdin().read_to_string(encrypted_message)?;
     };
     *encrypted_message = encrypted_message.trim().to_string();
     Ok(())

@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::errors::EncItError;
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum EncItPEM {
     Path(String),
@@ -62,7 +62,7 @@ impl EncItPEM {
     pub fn sha_pem(&self) -> Result<String, EncItError> {
         let mut sha = Sha256::new();
         sha.update(self.pem()?.as_slice());
-        Ok(base64::encode(sha.finish()))
+        Ok(hex::encode(sha.finish()))
     }
 }
 
@@ -111,7 +111,7 @@ impl EncItPrivateKey {
     pub fn public_key_pem_sha(&self) -> Result<String, EncItError> {
         let mut sha = Sha256::new();
         sha.update(self.public_key_pem()?.as_slice());
-        Ok(base64::encode(sha.finish()))
+        Ok(hex::encode(sha.finish()))
     }
 }
 
@@ -174,11 +174,11 @@ pub trait EncItConfig {
         friend_name: &str,
         public_key: &EncItPEM,
     ) -> Result<Box<dyn EncItConfig>, EncItError>;
-    fn add_identity<'b>(
+    fn add_identity<'a>(
         &self,
-        identity_name: &str,
+        identity_name: &'a str,
         private_key: &EncItPEM,
-        passphrase: Option<&'b str>,
+        passphrase: Option<&'a str>,
     ) -> Result<Box<dyn EncItConfig>, EncItError>;
     fn identities(&self) -> &Vec<EncItIdentity>;
     fn save(&self) -> Result<(), EncItError>;
@@ -233,6 +233,7 @@ impl EncItConfig for EncItConfigImpl {
                 .private_key
                 .public_key_pem_sha()
                 .unwrap_or_else(|_| panic!("cannot get public key for identity {}", identity.name));
+            println!("checking {} with {}", pub_key_sha, identity_public_key_sha);
             pub_key_sha == identity_public_key_sha
         })
     }
@@ -280,9 +281,9 @@ impl EncItConfig for EncItConfigImpl {
 
     fn add_identity<'a>(
         &self,
-        identity_name: &str,
+        identity_name: &'a str,
         private_key: &EncItPEM,
-        passphrase: Option<&str>,
+        passphrase: Option<&'a str>,
     ) -> Result<Box<dyn EncItConfig>, EncItError> {
         if self.identity(identity_name).is_some() {
             return Err(EncItError::IdentityAlreadyExist());
@@ -324,6 +325,7 @@ mod tests {
     use indoc::indoc;
     use openssl::symm::Cipher;
     use std::string::String;
+    use tempfile::NamedTempFile;
 
     use super::*;
 
@@ -340,20 +342,16 @@ mod tests {
         "};
 
     #[test]
-    fn load_test() -> Result<(), EncItError> {
-        let mut cfg_file = tempfile::Builder::new().suffix(".yml").tempfile().unwrap();
-        write!(cfg_file, "{}", VALID_CFG_CNT).expect("error writing cfg file");
-        let cfg = EncItConfigImpl::load(cfg_file.path())?;
-        assert_eq!(cfg.identities.len(), 1);
-        assert_eq!(cfg.friends.len(), 1);
+    fn load() -> Result<(), EncItError> {
+        let (_, cfg) = get_valid_config()?;
+        assert_eq!(cfg.identities().len(), 1);
+        assert_eq!(cfg.friends().len(), 1);
         Ok(())
     }
 
     #[test]
-    fn add_friend_test() -> Result<(), EncItError> {
-        let mut cfg_file = tempfile::Builder::new().suffix(".yml").tempfile().unwrap();
-        write!(cfg_file, "{}", VALID_CFG_CNT).expect("error writing cfg file");
-        let cfg = EncItConfigImpl::load(cfg_file.path())?;
+    fn add_friend() -> Result<(), EncItError> {
+        let (_, cfg) = get_valid_config()?;
         let new_friend_pub_key_hex = hex::encode(Rsa::generate(2048)?.public_key_to_pem()?);
 
         let new_cfg =
@@ -369,10 +367,8 @@ mod tests {
     }
 
     #[test]
-    fn add_identity_test() -> Result<(), EncItError> {
-        let mut cfg_file = tempfile::Builder::new().suffix(".yml").tempfile().unwrap();
-        write!(cfg_file, "{}", VALID_CFG_CNT).expect("error writing cfg file");
-        let cfg = EncItConfigImpl::load(cfg_file.path())?;
+    fn add_identity() -> Result<(), EncItError> {
+        let (_, cfg) = get_valid_config()?;
         let pem_pwd = "identity-pwd";
         let new_identity_private_key = hex::encode(
             Rsa::generate(2048)?
@@ -396,19 +392,88 @@ mod tests {
     }
 
     #[test]
-    fn save_test() -> Result<(), EncItError> {
-        let mut cfg_file = tempfile::Builder::new().suffix(".yml").tempfile().unwrap();
-        write!(cfg_file, "{}", VALID_CFG_CNT).expect("error writing cfg file");
-        let cfg = EncItConfigImpl::load(cfg_file.path())?;
+    fn save() -> Result<(), EncItError> {
+        let (mut cfg_file, cfg) = get_valid_config()?;
         let new_friend_pub_key_hex = hex::encode(Rsa::generate(2048)?.public_key_to_pem()?);
+        let identity_passphrase = "new-identity-pass";
+        let new_identity_private_key_hex =
+            hex::encode(Rsa::generate(2048)?.private_key_to_pem_passphrase(
+                Cipher::aes_128_cbc(),
+                identity_passphrase.as_bytes(),
+            )?);
         cfg.add_friend("new-friend", &EncItPEM::Hex(new_friend_pub_key_hex))?
+            .add_identity(
+                "new-identity",
+                &EncItPEM::Hex(new_identity_private_key_hex),
+                Some(identity_passphrase),
+            )?
             .save()?;
 
         cfg_file.rewind()?;
         let mut new_cfg_content = String::new();
         cfg_file.read_to_string(&mut new_cfg_content)?;
-        println!("2 : {}", new_cfg_content);
+        println!("new cfg :{}", new_cfg_content);
 
+        let new_cfg = EncItConfigImpl::load(cfg_file.path())?;
+        assert!(new_cfg.friend("new-friend").is_some());
+        assert!(new_cfg.identity("new-identity").is_some());
         Ok(())
+    }
+
+    #[test]
+    fn identity_found() -> Result<(), EncItError> {
+        let (_, cfg) = get_valid_config()?;
+        cfg.identity("identity-1").expect("identity-1 not found");
+        Ok(())
+    }
+
+    #[test]
+    fn identity_not_found() -> Result<(), EncItError> {
+        let (_, cfg) = get_valid_config()?;
+        let non_existent_identity_opt = cfg.identity("non-existent-identity");
+        assert!(non_existent_identity_opt.is_none());
+        Ok(())
+    }
+
+    #[test]
+    fn identity_by_public_key_sha_found() -> Result<(), EncItError> {
+        let (_, cfg) = get_valid_config()?;
+        cfg.identity_by_public_key_sha(
+            "23b59f9973066dbfd3c69a714055cfd87391938c685a3062580343e2e3f2d6e0",
+        )
+        .expect("identity-1 not found");
+        Ok(())
+    }
+
+    #[test]
+    fn friend_found() -> Result<(), EncItError> {
+        let (_, cfg) = get_valid_config()?;
+        cfg.friend("friend-1").expect("friend-1 not found");
+        Ok(())
+    }
+
+    #[test]
+    fn friend_not_found() -> Result<(), EncItError> {
+        let (_, cfg) = get_valid_config()?;
+        let non_existent_friend_opt = cfg.friend("non-existent-friend");
+        assert!(non_existent_friend_opt.is_none());
+        Ok(())
+    }
+
+    #[test]
+    fn friend_by_public_key_sha_found() -> Result<(), EncItError> {
+        let (_, cfg) = get_valid_config()?;
+        cfg.friend_by_public_key_sha(
+            "dbb90347dcf9f816ef522e94e69bf2964de87f966175e7e15d27c34ae0e9fbbc",
+        )
+        .expect("friend-1 not found");
+        Ok(())
+    }
+
+    fn get_valid_config() -> Result<(NamedTempFile, EncItConfigImpl), EncItError> {
+        let mut cfg_file = tempfile::Builder::new().suffix(".yml").tempfile().unwrap();
+        write!(cfg_file, "{}", VALID_CFG_CNT).expect("error writing cfg file");
+        let cfg = EncItConfigImpl::load(cfg_file.path())?;
+        Ok((cfg_file, cfg))
     }
 }
