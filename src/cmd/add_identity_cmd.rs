@@ -50,13 +50,12 @@ mod tests {
     use std::rc::Rc;
     use std::sync::Arc;
 
-    use mockall::predicate::eq;
     use openssl::rsa::Rsa;
     use openssl::symm::Cipher;
 
     use crate::cmd::add_cmd::KeyReader;
     use crate::config::MockEncItConfig;
-    use crate::{add_cmd, EncItConfig, EncItPEM};
+    use crate::{EncItConfig, EncItPEM};
 
     use super::*;
 

@@ -1,4 +1,5 @@
 # EncIT # 
+[![Coverage Status](https://coveralls.io/repos/github/n3wtron/encit/badge.svg?branch=master)](https://coveralls.io/github/n3wtron/encit?branch=master)
 
 Offline e2e encryption CLI
 
