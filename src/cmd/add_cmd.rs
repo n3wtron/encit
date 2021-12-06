@@ -1,9 +1,8 @@
+use crate::cmd::reader::EncItFileReader;
 use crate::{EncItError, EncItPEM};
 use clap::{App, Arg, ArgMatches, SubCommand};
-use std::any::Any;
 use std::cell::RefCell;
-use std::fs::File;
-use std::io::{stdin, Read, Stdin};
+use std::io::Read;
 
 pub fn add_cmd<'a>(name: &str) -> App<'a, 'a> {
     SubCommand::with_name(name)
@@ -31,7 +30,7 @@ pub fn add_cmd<'a>(name: &str) -> App<'a, 'a> {
 
 pub fn get_key(
     arg_matches: &ArgMatches,
-    reader: RefCell<Box<dyn KeyReader>>,
+    reader: RefCell<Box<dyn EncItFileReader>>,
 ) -> Result<EncItPEM, EncItError> {
     let mut key_content = String::new();
     reader.borrow_mut().read_to_string(&mut key_content)?;
@@ -44,38 +43,12 @@ pub fn get_key(
     }
 }
 
-pub trait KeyReader: Read {
-    fn as_any(&self) -> &dyn Any;
-}
-
-impl KeyReader for Stdin {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-}
-
-impl KeyReader for File {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-}
-
-pub fn get_key_reader(arg_matches: &ArgMatches) -> Result<Box<dyn KeyReader>, EncItError> {
-    if let Some(file_path) = arg_matches.value_of("key-file") {
-        println!("file!1");
-        let fl: Box<dyn KeyReader> = Box::new(File::open(file_path)?);
-        Ok(fl)
-    } else {
-        println!("stdin");
-        let stdin: Box<dyn KeyReader> = Box::new(stdin());
-        Ok(stdin)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cmd::reader::get_file_reader;
     use crate::EncItError;
+    use std::fs::File;
     use std::io::Stdin;
     use tempfile::NamedTempFile;
 
@@ -84,7 +57,7 @@ mod tests {
         let cmd = add_cmd("test");
         let matches =
             cmd.get_matches_from(vec!["test", "--name", "test", "--format", "base64-pem"]);
-        let reader = get_key_reader(&matches)?;
+        let reader = get_file_reader(&matches, "key-file")?;
         let file = reader.as_any().downcast_ref::<Stdin>();
         assert!(file.is_some());
         Ok(())
@@ -102,7 +75,7 @@ mod tests {
             "base64-pem",
             key_file.path().to_str().unwrap(),
         ]);
-        let reader = get_key_reader(&matches)?;
+        let reader = get_file_reader(&matches, "key-file")?;
         let file = reader.as_any().downcast_ref::<File>();
         assert!(file.is_some());
         Ok(())

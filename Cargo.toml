@@ -26,6 +26,7 @@ hex = "0.4.3"
 [dev-dependencies]
 indoc = "1.0.3"
 mockall = "0.10.2"
+rand = "0.8.4"
 
 [dev-dependencies.cargo-husky]
 version = "1"

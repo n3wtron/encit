@@ -1,4 +1,5 @@
-use crate::cmd::add_cmd::{get_key, get_key_reader, KeyReader};
+use crate::cmd::add_cmd::get_key;
+use crate::cmd::reader::{get_file_reader, EncItFileReader};
 use crate::{EncItConfig, EncItError, EncItPEM, InvalidCommand};
 use clap::ArgMatches;
 use std::cell::RefCell;
@@ -8,14 +9,14 @@ pub fn add_friend_exec(
     arg_matches: &ArgMatches,
     config: Rc<dyn EncItConfig>,
 ) -> Result<(), EncItError> {
-    let key_reader = RefCell::new(get_key_reader(arg_matches)?);
+    let key_reader = RefCell::new(get_file_reader(arg_matches, "key-file")?);
     add_friend(arg_matches, config, key_reader)
 }
 
 fn add_friend(
     arg_matches: &ArgMatches,
     config: Rc<dyn EncItConfig>,
-    key_reader: RefCell<Box<dyn KeyReader>>,
+    key_reader: RefCell<Box<dyn EncItFileReader>>,
 ) -> Result<(), EncItError> {
     let key = get_key(arg_matches, key_reader)?;
     // check if is a valid public key
@@ -39,6 +40,7 @@ mod tests {
     use mockall::predicate::eq;
     use openssl::rsa::Rsa;
 
+    use crate::cmd::reader::EncItFileReader;
     use crate::config::MockEncItConfig;
     use crate::{add_cmd, EncItConfig, EncItPEM};
 
@@ -53,7 +55,8 @@ mod tests {
         let priv_key = Rsa::generate(2048).unwrap();
         let pub_key_hex = Arc::new(priv_key.public_key_to_pem().map(hex::encode).unwrap());
         let hex_key = Box::leak(Box::new(pub_key_hex));
-        let key_reader: RefCell<Box<dyn KeyReader>> = RefCell::new(Box::new(hex_key.as_bytes()));
+        let key_reader: RefCell<Box<dyn EncItFileReader>> =
+            RefCell::new(Box::new(hex_key.as_bytes()));
         let cfg_mock: Rc<dyn EncItConfig> = Rc::new(MockEncItConfig::new());
         let result = add_friend(&matches, cfg_mock, key_reader);
         assert!(result.is_err());
@@ -69,7 +72,8 @@ mod tests {
         let pub_key_hex = Arc::new(priv_key.public_key_to_pem().map(hex::encode).unwrap());
         let expected_encit_pem = EncItPEM::Hex(pub_key_hex.to_string());
         let hex_key = Box::leak(Box::new(pub_key_hex));
-        let key_reader: RefCell<Box<dyn KeyReader>> = RefCell::new(Box::new(hex_key.as_bytes()));
+        let key_reader: RefCell<Box<dyn EncItFileReader>> =
+            RefCell::new(Box::new(hex_key.as_bytes()));
         check_add_friend(friend_name, &matches, key_reader, expected_encit_pem);
     }
 
@@ -89,14 +93,15 @@ mod tests {
         let pub_key_base64 = Arc::new(priv_key.public_key_to_pem().map(base64::encode).unwrap());
         let expected_encit_pem = EncItPEM::Hex(pub_key_hex.to_string());
         let base64_key = Box::leak(Box::new(pub_key_base64));
-        let key_reader: RefCell<Box<dyn KeyReader>> = RefCell::new(Box::new(base64_key.as_bytes()));
+        let key_reader: RefCell<Box<dyn EncItFileReader>> =
+            RefCell::new(Box::new(base64_key.as_bytes()));
         check_add_friend(friend_name, &matches, key_reader, expected_encit_pem);
     }
 
     fn check_add_friend(
         friend_name: &'static str,
         matches: &ArgMatches,
-        key_reader: RefCell<Box<dyn KeyReader>>,
+        key_reader: RefCell<Box<dyn EncItFileReader>>,
         expected_encit_pem: EncItPEM,
     ) {
         let mut cfg_mock = MockEncItConfig::new();
@@ -113,7 +118,7 @@ mod tests {
         add_friend(matches, cfg, key_reader).expect("add friend in error");
     }
 
-    impl KeyReader for &'static [u8] {
+    impl EncItFileReader for &'static [u8] {
         fn as_any(&self) -> &dyn Any {
             self
         }

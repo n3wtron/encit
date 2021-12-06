@@ -10,6 +10,25 @@ use std::string::String;
 use crate::config::{EncItConfig, EncItFriend, EncItIdentity};
 use crate::errors::EncItError;
 
+#[cfg(test)]
+use mockall::{automock, predicate::*};
+
+#[cfg_attr(test, automock)]
+pub trait EncIt {
+    fn encrypt<'a>(
+        &self,
+        identity: &'a str,
+        friend: &'a str,
+        subject: Option<&'a str>,
+        message: &'a str,
+    ) -> Result<String, EncItError>;
+    fn decrypt<'a>(
+        &self,
+        jwe: &'a str,
+        identity: Option<&'a str>,
+    ) -> Result<EncItMessage, EncItError>;
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct EncItMessage {
     sender: String,
@@ -36,132 +55,164 @@ impl EncItMessage {
     pub fn verified(&self) -> bool {
         self.verified
     }
-}
 
-pub fn encrypt(
-    cfg: Rc<dyn EncItConfig>,
-    identity: &str,
-    friend: &str,
-    subject: Option<&str>,
-    message: &str,
-) -> Result<String, EncItError> {
-    let identity = cfg
-        .identity(identity)
-        .ok_or_else(|| EncItError::IdentityNotFound(identity.to_string()))?;
-    let friend = cfg
-        .friend(friend)
-        .ok_or_else(|| EncItError::FriendNotFound(friend.to_string()))?;
-
-    let jws = create_jws(message, identity)?;
-    debug!("jws:{}", &jws);
-    let jwe = create_jwe(subject, &jws, identity, friend)?;
-    debug!("jwe:{}", &jwe);
-    Ok(jwe)
-}
-
-fn create_jwe(
-    subject: Option<&str>,
-    message: &str,
-    identity: &EncItIdentity,
-    friend: &EncItFriend,
-) -> Result<String, EncItError> {
-    let friend_pub_key = friend.public_key().pem()?;
-    let identity_pub_key_sha = identity.private_key().public_key_pem_sha()?;
-    let mut jwe_header = JweHeader::new();
-    jwe_header.set_token_type("JWT");
-    jwe_header.set_content_encryption("A128CBC-HS256");
-    if let Some(subject) = subject {
-        jwe_header.set_subject(subject);
+    #[cfg(test)]
+    pub fn new(
+        sender: String,
+        receiver: String,
+        subject: Option<String>,
+        payload: String,
+        verified: bool,
+    ) -> Self {
+        EncItMessage {
+            sender,
+            receiver,
+            subject,
+            payload,
+            verified,
+        }
     }
-    jwe_header.set_claim("rcp", Some(friend.public_key().sha_pem()?.into()))?;
-    let mut payload = JwtPayload::new();
-    payload.set_issuer(identity_pub_key_sha);
-    payload.set_claim("message", Some(Value::String(message.to_string())))?;
-    let encrypter = RSA_OAEP.encrypter_from_pem(friend_pub_key)?;
-    jwt::encode_with_encrypter(&payload, &jwe_header, &encrypter).map_err(|e| e.into())
 }
 
-fn create_jws(message: &str, identity: &EncItIdentity) -> Result<String, EncItError> {
-    let identity_priv_key = identity.private_key().pem()?;
-    debug!(
-        "signing with private key:{}",
-        String::from_utf8(identity_priv_key.clone()).unwrap()
-    );
-    let mut jws_header = JwsHeader::new();
-    jws_header.set_token_type("JWT");
-
-    let mut payload = JwtPayload::new();
-    payload.set_claim("message", Some(message.into()))?;
-
-    let signer = RS256.signer_from_pem(identity_priv_key)?;
-    jwt::encode_with_signer(&payload, &jws_header, &signer).map_err(|e| e.into())
+pub struct EncItImpl {
+    config: Rc<dyn EncItConfig>,
 }
 
-pub fn decrypt(
-    cfg: Rc<dyn EncItConfig>,
-    jwe: &str,
-    identity: Option<&str>,
-) -> Result<EncItMessage, EncItError> {
-    let identity = if let Some(identity_name) = identity {
-        cfg.identity(identity_name)
-    } else {
-        let header = jwt::decode_header(jwe)?;
-        let receiver_public_key_sha = header.claim("rcp").unwrap().as_str().unwrap();
-        debug!("get identity by sha:{}", receiver_public_key_sha);
-        cfg.identity_by_public_key_sha(receiver_public_key_sha)
+impl EncIt for EncItImpl {
+    fn encrypt(
+        &self,
+        identity: &str,
+        friend: &str,
+        subject: Option<&str>,
+        message: &str,
+    ) -> Result<String, EncItError> {
+        let identity = self
+            .config
+            .identity(identity)
+            .ok_or_else(|| EncItError::IdentityNotFound(identity.to_string()))?;
+        let friend = self
+            .config
+            .friend(friend)
+            .ok_or_else(|| EncItError::FriendNotFound(friend.to_string()))?;
+
+        let jws = Self::create_jws(message, identity)?;
+        debug!("jws:{}", &jws);
+        let jwe = Self::create_jwe(subject, &jws, identity, friend)?;
+        debug!("jwe:{}", &jwe);
+        Ok(jwe)
     }
-    .ok_or_else(|| EncItError::IdentityNotFound(String::new()))?;
-    debug!("Identity found:{}", identity.name());
 
-    let (payload, header) = extract_jwe(jwe, identity)?;
+    fn decrypt(&self, jwe: &str, identity: Option<&str>) -> Result<EncItMessage, EncItError> {
+        let identity = if let Some(identity_name) = identity {
+            self.config.identity(identity_name)
+        } else {
+            let header = jwt::decode_header(jwe)?;
+            let receiver_public_key_sha = header.claim("rcp").unwrap().as_str().unwrap();
+            debug!("get identity by sha:{}", receiver_public_key_sha);
+            self.config
+                .identity_by_public_key_sha(receiver_public_key_sha)
+        }
+        .ok_or_else(|| EncItError::IdentityNotFound(String::new()))?;
+        debug!("Identity found:{}", identity.name());
 
-    let friend = payload
-        .issuer()
-        .and_then(|friend_pub_key_sha| cfg.friend_by_public_key_sha(friend_pub_key_sha))
-        .ok_or_else(|| {
-            EncItError::FriendNotFound(
-                "cannot find a friend that match with the message public key".to_string(),
-            )
-        })?;
+        let (payload, header) = Self::extract_jwe(jwe, identity)?;
 
-    let (verified, message) = extract_jws(payload.claim("message").unwrap().as_str(), friend)?;
+        let friend = payload
+            .issuer()
+            .and_then(|friend_pub_key_sha| self.config.friend_by_public_key_sha(friend_pub_key_sha))
+            .ok_or_else(|| {
+                EncItError::FriendNotFound(
+                    "cannot find a friend that match with the message public key".to_string(),
+                )
+            })?;
 
-    Ok(EncItMessage {
-        sender: friend.name().to_string(),
-        receiver: identity.name().to_string(),
-        subject: header.subject().map(|s| s.to_string()),
-        payload: message,
-        verified,
-    })
-}
+        let (verified, message) =
+            Self::extract_jws(payload.claim("message").unwrap().as_str(), friend)?;
 
-fn extract_jwe(jwe: &str, identity: &EncItIdentity) -> Result<(JwtPayload, JweHeader), EncItError> {
-    let decrypter = RSA_OAEP.decrypter_from_pem(identity.private_key().pem()?)?;
-    jwt::decode_with_decrypter(jwe, &decrypter).map_err(|e| e.into())
-}
-
-fn extract_jws(jws: Option<&str>, friend: &EncItFriend) -> Result<(bool, String), EncItError> {
-    let jws = jws.ok_or_else(EncItError::EmptyMessage)?;
-    debug!("extract jws :{}", jws);
-    let friend_public_key = friend.public_key().pem()?;
-    debug!(
-        "verifying with friend public key:{}",
-        String::from_utf8(friend_public_key.clone()).unwrap()
-    );
-    let verifier = RS256.verifier_from_pem(friend_public_key)?;
-    jwt::decode_with_verifier(jws, &verifier)
-        .map(|(payload, _)| {
-            (
-                true,
-                payload
-                    .claim("message")
-                    .unwrap()
-                    .as_str()
-                    .unwrap()
-                    .to_string(),
-            )
+        Ok(EncItMessage {
+            sender: friend.name().to_string(),
+            receiver: identity.name().to_string(),
+            subject: header.subject().map(|s| s.to_string()),
+            payload: message,
+            verified,
         })
-        .map_err(|e| e.into())
+    }
+}
+
+impl EncItImpl {
+    pub fn new(config: Rc<dyn EncItConfig>) -> Self {
+        EncItImpl { config }
+    }
+
+    fn create_jwe(
+        subject: Option<&str>,
+        message: &str,
+        identity: &EncItIdentity,
+        friend: &EncItFriend,
+    ) -> Result<String, EncItError> {
+        let friend_pub_key = friend.public_key().pem()?;
+        let identity_pub_key_sha = identity.private_key().public_key_pem_sha()?;
+        let mut jwe_header = JweHeader::new();
+        jwe_header.set_token_type("JWT");
+        jwe_header.set_content_encryption("A128CBC-HS256");
+        if let Some(subject) = subject {
+            jwe_header.set_subject(subject);
+        }
+        jwe_header.set_claim("rcp", Some(friend.public_key().sha_pem()?.into()))?;
+        let mut payload = JwtPayload::new();
+        payload.set_issuer(identity_pub_key_sha);
+        payload.set_claim("message", Some(Value::String(message.to_string())))?;
+        let encrypter = RSA_OAEP.encrypter_from_pem(friend_pub_key)?;
+        jwt::encode_with_encrypter(&payload, &jwe_header, &encrypter).map_err(|e| e.into())
+    }
+
+    fn create_jws(message: &str, identity: &EncItIdentity) -> Result<String, EncItError> {
+        let identity_priv_key = identity.private_key().pem()?;
+        debug!(
+            "signing with private key:{}",
+            String::from_utf8(identity_priv_key.clone()).unwrap()
+        );
+        let mut jws_header = JwsHeader::new();
+        jws_header.set_token_type("JWT");
+
+        let mut payload = JwtPayload::new();
+        payload.set_claim("message", Some(message.into()))?;
+
+        let signer = RS256.signer_from_pem(identity_priv_key)?;
+        jwt::encode_with_signer(&payload, &jws_header, &signer).map_err(|e| e.into())
+    }
+
+    fn extract_jwe(
+        jwe: &str,
+        identity: &EncItIdentity,
+    ) -> Result<(JwtPayload, JweHeader), EncItError> {
+        let decrypter = RSA_OAEP.decrypter_from_pem(identity.private_key().pem()?)?;
+        jwt::decode_with_decrypter(jwe, &decrypter).map_err(|e| e.into())
+    }
+
+    fn extract_jws(jws: Option<&str>, friend: &EncItFriend) -> Result<(bool, String), EncItError> {
+        let jws = jws.ok_or_else(EncItError::EmptyMessage)?;
+        debug!("extract jws :{}", jws);
+        let friend_public_key = friend.public_key().pem()?;
+        debug!(
+            "verifying with friend public key:{}",
+            String::from_utf8(friend_public_key.clone()).unwrap()
+        );
+        let verifier = RS256.verifier_from_pem(friend_public_key)?;
+        jwt::decode_with_verifier(jws, &verifier)
+            .map(|(payload, _)| {
+                (
+                    true,
+                    payload
+                        .claim("message")
+                        .unwrap()
+                        .as_str()
+                        .unwrap()
+                        .to_string(),
+                )
+            })
+            .map_err(|e| e.into())
+    }
 }
 
 #[cfg(test)]
@@ -201,10 +252,10 @@ mod tests {
             .returning(|_f| Some(encrypt_identity));
 
         let encrypt_cfg: Rc<dyn EncItConfig> = Rc::new(encrypt_cfg_mock);
-        let plain_message = "hello";
+        let enc_it = EncItImpl::new(encrypt_cfg);
 
-        let enc_msg = encrypt(
-            encrypt_cfg.clone(),
+        let plain_message = "hello";
+        let enc_msg = enc_it.encrypt(
             encrypt_identity_name,
             encrypt_friend_name,
             Some("subject"),
@@ -230,7 +281,8 @@ mod tests {
             .returning(|_| Some(decrypt_friend));
 
         let decrypt_cfg_mock: Rc<dyn EncItConfig> = Rc::new(decrypt_cfg_mock);
-        let decrypted = decrypt(decrypt_cfg_mock, &enc_msg, None);
+        let enc_it = EncItImpl::new(decrypt_cfg_mock);
+        let decrypted = enc_it.decrypt(&enc_msg, None);
 
         let message = decrypted?;
         assert_eq!(message.payload, plain_message);

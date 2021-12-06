@@ -14,7 +14,6 @@ use clap::{App, SubCommand};
 use crate::cmd::add_friend_cmd::add_friend_exec;
 
 use crate::config::{EncItConfig, EncItConfigImpl, EncItPEM};
-use crate::enc::{decrypt, encrypt};
 use crate::errors::EncItError;
 use crate::EncItError::InvalidCommand;
 
