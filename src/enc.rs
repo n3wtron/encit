@@ -29,7 +29,7 @@ pub trait EncIt {
     ) -> Result<EncItMessage, EncItError>;
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct EncItMessage {
     sender: String,
     receiver: String,

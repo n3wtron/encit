@@ -71,6 +71,12 @@ impl From<FromUtf8Error> for EncItError {
     }
 }
 
+impl From<serde_json::Error> for EncItError {
+    fn from(serde_error: serde_json::Error) -> Self {
+        EncItError::EncodeError(serde_error.to_string())
+    }
+}
+
 impl From<JoseError> for EncItError {
     fn from(jwt_error: JoseError) -> Self {
         EncItError::JWTError(format!("{}", jwt_error))
