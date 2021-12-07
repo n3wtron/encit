@@ -16,3 +16,31 @@ pub fn new_identity_exec(
     let key = EncItPEM::Hex(hex::encode(key.private_key_to_pem()?));
     config.add_identity(identity_name, &key, None)?.save()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::MockEncItConfig;
+    use crate::EncItError;
+
+    #[test]
+    fn new_identity_test() -> Result<(), EncItError> {
+        let cmd = new_identity_cmd();
+        let identity_name = "new-identity-1";
+        let cmd_matches = cmd.get_matches_from(vec!["identity", identity_name]);
+        let mut cfg_mock = MockEncItConfig::new();
+        cfg_mock
+            .expect_add_identity()
+            .withf(move |identity_name_param, _, passphrase| {
+                identity_name_param == identity_name && passphrase.is_none()
+            })
+            .returning(|_, _, _| {
+                let mut new_cfg = MockEncItConfig::new();
+                new_cfg.expect_save().returning(|| Ok(()));
+                Ok(Box::new(new_cfg))
+            });
+        new_identity_exec(&cmd_matches, Rc::new(cfg_mock))?;
+
+        Ok(())
+    }
+}
