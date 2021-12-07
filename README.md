@@ -1,5 +1,5 @@
 # EncIT # 
-[![Coverage Status](https://coveralls.io/repos/github/n3wtron/encit/badge.svg?branch=master)](https://coveralls.io/github/n3wtron/encit?branch=master)
+[![BuildAndCheck](https://github.com/n3wtron/encit/actions/workflows/build_and_check.yml/badge.svg)](https://github.com/n3wtron/encit/actions/workflows/build_and_check.yml) [![Coverage Status](https://coveralls.io/repos/github/n3wtron/encit/badge.svg?branch=master)](https://coveralls.io/github/n3wtron/encit?branch=master) [![Security audit](https://github.com/n3wtron/encit/actions/workflows/security_check.yml/badge.svg)](https://github.com/n3wtron/encit/actions/workflows/security_check.yml)
 
 Offline e2e encryption CLI
 
