@@ -40,15 +40,35 @@ fn get_config(config_file: &Path) -> Result<Rc<dyn EncItConfig>, EncItError> {
 
 #[cfg(test)]
 mod tests {
+
+    struct AutoDeleteFile<'a>(pub &'a Path);
+    impl<'a> Drop for AutoDeleteFile<'a> {
+        fn drop(&mut self) {
+            let _ = remove_file(self.0);
+        }
+    }
+
     use super::*;
     use crate::config::tests::VALID_CFG_CNT;
+    use rand::distributions::Alphanumeric;
+    use rand::{thread_rng, Rng};
+    use std::env::temp_dir;
+    use std::fs::remove_file;
     use std::io::Write;
+    use std::path::PathBuf;
 
     #[test]
     fn get_config_not_exist() -> Result<(), EncItError> {
-        let cfg_file = tempfile::Builder::new().suffix(".yml").tempfile()?;
-        let cfg_file_path = cfg_file.path();
-        get_config(cfg_file_path)?;
+        let cfg_file_name: String = thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(30)
+            .map(char::from)
+            .collect();
+        let mut cfg_file_path = PathBuf::new();
+        cfg_file_path.push(temp_dir());
+        cfg_file_path.push(cfg_file_name);
+        let _auto_delete = AutoDeleteFile(cfg_file_path.as_path());
+        get_config(cfg_file_path.as_path())?;
         assert!(cfg_file_path.exists());
         Ok(())
     }
