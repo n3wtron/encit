@@ -319,7 +319,7 @@ impl EncItConfig for EncItConfigImpl {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use std::io::{Read, Seek, Write};
 
     use indoc::indoc;

@@ -1,6 +1,7 @@
 use crate::cmd::add_cmd::get_key;
 use crate::cmd::reader::{get_file_reader, EncItFileReader};
-use crate::{EncItConfig, EncItError, EncItPEM, InvalidCommand};
+use crate::EncItError::InvalidCommand;
+use crate::{EncItConfig, EncItError, EncItPEM};
 use clap::ArgMatches;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -40,9 +41,10 @@ mod tests {
     use mockall::predicate::eq;
     use openssl::rsa::Rsa;
 
+    use crate::cmd::add_cmd::add_cmd;
     use crate::cmd::reader::EncItFileReader;
     use crate::config::MockEncItConfig;
-    use crate::{add_cmd, EncItConfig, EncItPEM};
+    use crate::{EncItConfig, EncItPEM};
 
     use super::*;
 

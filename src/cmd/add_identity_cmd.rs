@@ -3,9 +3,10 @@ use std::rc::Rc;
 
 use clap::{App, Arg, ArgMatches};
 
-use crate::cmd::add_cmd::get_key;
+use crate::cmd::add_cmd::{add_cmd, get_key};
 use crate::cmd::reader::{get_file_reader, EncItFileReader};
-use crate::{add_cmd, EncItConfig, EncItError, EncItPEM, InvalidCommand};
+use crate::EncItError::InvalidCommand;
+use crate::{EncItConfig, EncItError, EncItPEM};
 
 pub fn add_identity_cmd<'a>() -> App<'a, 'a> {
     add_cmd("identity").arg(
