@@ -9,6 +9,8 @@ use crate::{EncItConfig, EncItError};
 use clap::{App, ArgMatches, SubCommand};
 use std::rc::Rc;
 
+use crate::cmd::get_friends_cmd::{get_friends_cmd, get_friends_exec};
+use crate::cmd::get_identities_cmd::{get_identities_cmd, get_identities_exec};
 #[cfg(test)]
 use mockall::automock;
 
@@ -28,6 +30,8 @@ pub trait Commands {
     fn add_friend<'a>(&self, arg_matches: &'a ArgMatches<'a>) -> Result<(), EncItError>;
     fn add_identity<'a>(&self, arg_matches: &'a ArgMatches<'a>) -> Result<(), EncItError>;
     fn get_identity<'a>(&self, arg_matches: &'a ArgMatches<'a>) -> Result<(), EncItError>;
+    fn get_identities<'a>(&self, arg_matches: &'a ArgMatches<'a>) -> Result<(), EncItError>;
+    fn get_friends<'a>(&self, arg_matches: &'a ArgMatches<'a>) -> Result<(), EncItError>;
     fn new_identity<'a>(&self, arg_matches: &'a ArgMatches<'a>) -> Result<(), EncItError>;
     fn encrypt<'a>(&self, arg_matches: &'a ArgMatches<'a>) -> Result<(), EncItError>;
     fn decrypt<'a>(&self, arg_matches: &'a ArgMatches<'a>) -> Result<(), EncItError>;
@@ -48,6 +52,14 @@ impl Commands for CommandsImpl {
 
     fn get_identity<'a>(&self, arg_matches: &'a ArgMatches<'a>) -> Result<(), EncItError> {
         get_identity_exec(arg_matches, self.get_config())
+    }
+
+    fn get_identities<'a>(&self, arg_matches: &'a ArgMatches<'a>) -> Result<(), EncItError> {
+        get_identities_exec(arg_matches, self.get_config())
+    }
+
+    fn get_friends<'a>(&self, arg_matches: &'a ArgMatches<'a>) -> Result<(), EncItError> {
+        get_friends_exec(arg_matches, self.get_config())
     }
 
     fn new_identity<'a>(&self, arg_matches: &'a ArgMatches<'a>) -> Result<(), EncItError> {
@@ -71,8 +83,8 @@ pub fn root_cmd<'a>() -> App<'a, 'a> {
         .subcommand(
             SubCommand::with_name("get")
                 .about("retrieve encit information")
-                .subcommand(SubCommand::with_name("friends"))
-                .subcommand(SubCommand::with_name("identities"))
+                .subcommand(get_friends_cmd())
+                .subcommand(get_identities_cmd())
                 .subcommand(get_identity_cmd()),
         )
         .subcommand(
@@ -96,19 +108,8 @@ pub fn root_exec(commands: Rc<dyn Commands>, matches: &ArgMatches) -> Result<(),
             (_, _) => Err(EncItError::InvalidCommand(String::new())),
         },
         ("get", Some(get_matches)) => match get_matches.subcommand() {
-            //FIXME create a dedicated exec function for get friends and get identities
-            ("friends", _) => {
-                for friend in commands.get_config().friends() {
-                    println!("{}", friend.name());
-                }
-                Ok(())
-            }
-            ("identities", _) => {
-                for identity in commands.get_config().identities() {
-                    println!("{}", identity.name());
-                }
-                Ok(())
-            }
+            ("friends", Some(cmd_matches)) => commands.get_friends(cmd_matches),
+            ("identities", Some(cmd_matches)) => commands.get_identities(cmd_matches),
             ("identity", Some(cmd_args)) => commands.get_identity(cmd_args),
             (_, _) => Err(EncItError::InvalidCommand(String::new())),
         },
@@ -192,6 +193,44 @@ mod tests {
         let mut commands = MockCommands::new();
         commands
             .expect_get_identity()
+            .withf(move |arg_matches_param| {
+                expected_arg_matches == format!("{:?}", arg_matches_param)
+            })
+            .returning(|_| Ok(()));
+        let rc_commands: Rc<dyn Commands> = Rc::new(commands);
+        root_exec(rc_commands, &arg_matches)
+    }
+
+    #[test]
+    fn get_identities() -> Result<(), EncItError> {
+        let cmd = root_cmd();
+        let arg_matches = Rc::new(cmd.get_matches_from(vec!["encit", "get", "identities"]));
+        let expected_arg_matches = format!(
+            "{:?}",
+            arg_matches.subcommand().1.unwrap().subcommand().1.unwrap()
+        );
+        let mut commands = MockCommands::new();
+        commands
+            .expect_get_identities()
+            .withf(move |arg_matches_param| {
+                expected_arg_matches == format!("{:?}", arg_matches_param)
+            })
+            .returning(|_| Ok(()));
+        let rc_commands: Rc<dyn Commands> = Rc::new(commands);
+        root_exec(rc_commands, &arg_matches)
+    }
+
+    #[test]
+    fn get_friends() -> Result<(), EncItError> {
+        let cmd = root_cmd();
+        let arg_matches = Rc::new(cmd.get_matches_from(vec!["encit", "get", "friends"]));
+        let expected_arg_matches = format!(
+            "{:?}",
+            arg_matches.subcommand().1.unwrap().subcommand().1.unwrap()
+        );
+        let mut commands = MockCommands::new();
+        commands
+            .expect_get_friends()
             .withf(move |arg_matches_param| {
                 expected_arg_matches == format!("{:?}", arg_matches_param)
             })

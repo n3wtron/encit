@@ -216,7 +216,7 @@ impl EncItImpl {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use mockall::predicate::eq;
     use openssl::pkey::Private;
     use openssl::rsa::Rsa;
@@ -293,7 +293,7 @@ mod tests {
         Ok(())
     }
 
-    fn generate_friend(
+    pub fn generate_friend(
         friend_name: &str,
         key: Option<Rsa<Private>>,
     ) -> (Rsa<Private>, Box<EncItFriend>) {
@@ -307,7 +307,7 @@ mod tests {
         (friend_priv_key, friend)
     }
 
-    fn generate_identity(
+    pub fn generate_identity(
         identity_name: &str,
         key: Option<Rsa<Private>>,
     ) -> (Rsa<Private>, Box<EncItIdentity>) {
