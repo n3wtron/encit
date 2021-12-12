@@ -45,13 +45,12 @@ fn decrypt(
     reader.borrow_mut().read_to_string(&mut encrypted_message)?;
 
     let decrypted_message = enc_it.decrypt(&encrypted_message, identity)?;
+    let mut writer = writer.borrow_mut();
     if cmd_matches.is_present("json") {
-        writer
-            .borrow_mut()
-            .write_all(serde_json::to_vec(&decrypted_message)?.as_slice())?;
+        writer.write_all(serde_json::to_vec(&decrypted_message)?.as_slice())?;
     } else {
         let payload = base64::decode(decrypted_message.payload())?;
-        writer.borrow_mut().write_all(payload.as_slice())?;
+        writer.write_all(payload.as_slice())?;
     }
     Ok(())
 }

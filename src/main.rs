@@ -1,8 +1,10 @@
 use crate::cmd::root_cmd::{root_cmd, root_exec, CommandsImpl};
 use crate::config::{EncItConfig, EncItConfigImpl, EncItPEM};
 use crate::errors::EncItError;
+use log::debug;
+use std::env;
 use std::fs::create_dir;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 mod cmd;
@@ -12,16 +14,22 @@ mod errors;
 
 fn main() -> Result<(), EncItError> {
     env_logger::init();
+    let args: Vec<String> = env::args().collect();
+    debug!("args {:?}", args);
 
-    let config_file = dirs::home_dir()
-        .expect("cannot find home directory")
-        .join(".encit")
-        .join("config.yml");
+    let matches = root_cmd().get_matches();
 
+    let config_file = if let Some(config_file_arg) = matches.value_of("config") {
+        PathBuf::new().join(config_file_arg)
+    } else {
+        dirs::home_dir()
+            .expect("cannot find home directory")
+            .join(".encit")
+            .join("config.yml")
+    };
     let config: Rc<dyn EncItConfig> = get_config(config_file.as_path())?;
     let commands = Rc::new(CommandsImpl::new(config));
 
-    let matches = root_cmd().get_matches();
     root_exec(commands, &matches)
 }
 

@@ -4,6 +4,7 @@ use std::io::Write;
 use std::path::Path;
 
 use config::{Config, File};
+use log::debug;
 #[cfg(test)]
 use mockall::{automock, predicate::*};
 use openssl::pkey::{Private, Public};
@@ -233,7 +234,7 @@ impl EncItConfig for EncItConfigImpl {
                 .private_key
                 .public_key_pem_sha()
                 .unwrap_or_else(|_| panic!("cannot get public key for identity {}", identity.name));
-            println!("checking {} with {}", pub_key_sha, identity_public_key_sha);
+            debug!("checking {} with {}", pub_key_sha, identity_public_key_sha);
             pub_key_sha == identity_public_key_sha
         })
     }

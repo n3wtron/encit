@@ -4,7 +4,7 @@ use crate::{EncItConfig, EncItError};
 use clap::{App, Arg, ArgMatches, SubCommand};
 use log::debug;
 use std::cell::RefCell;
-use std::io::Read;
+use std::io::{stdout, Read, Write};
 use std::rc::Rc;
 
 pub fn encrypt_cmd<'a>() -> App<'a, 'a> {
@@ -46,13 +46,15 @@ pub fn encrypt_exec(
 ) -> Result<(), EncItError> {
     let enc_it = Rc::new(EncItImpl::new(config));
     let reader = RefCell::new(get_file_reader(cmd_matches, "file")?);
-    encrypt(cmd_matches, enc_it, reader)
+    let writer = Rc::new(RefCell::new(stdout()));
+    encrypt(cmd_matches, enc_it, reader, writer)
 }
 
 fn encrypt(
     cmd_matches: &ArgMatches,
     enc_it: Rc<dyn EncIt>,
     reader: RefCell<Box<dyn EncItFileReader>>,
+    writer: Rc<RefCell<dyn Write>>,
 ) -> Result<(), EncItError> {
     let identity = cmd_matches.value_of("identity").unwrap();
     let friend = cmd_matches.value_of("friend").unwrap();
@@ -65,8 +67,10 @@ fn encrypt(
     let b64_message = base64::encode(message);
 
     let enc_message = enc_it.encrypt(identity, friend, subject, &b64_message)?;
-    println!("{}", enc_message);
-    Ok(())
+    writer
+        .borrow_mut()
+        .write_all(enc_message.as_bytes())
+        .map_err(|e| e.into())
 }
 
 #[cfg(test)]
@@ -111,11 +115,13 @@ mod tests {
                         && message_param == b64_message
                 },
             )
-            .returning(|_, _, _, _| Ok(String::from("enc")));
+            .returning(|_, _, _, _| Ok(String::from("fake enc")));
         let rc_encit_mock = Rc::new(encit_mock);
-        let message = RefCell::new(Box::new(message2.as_bytes()));
-
-        encrypt(&cmd_matches, rc_encit_mock, message)?;
+        let in_message = RefCell::new(Box::new(message2.as_bytes()));
+        let writer: Rc<RefCell<Vec<u8>>> = Rc::new(RefCell::new(Vec::new()));
+        encrypt(&cmd_matches, rc_encit_mock, in_message, writer.clone())?;
+        let result = String::from_utf8(writer.borrow().to_vec())?;
+        assert_eq!(result, "fake enc");
         Ok(())
     }
 }

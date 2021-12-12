@@ -6,7 +6,7 @@ use crate::cmd::encrypt_cmd::{encrypt_cmd, encrypt_exec};
 use crate::cmd::get_identity_cmd::{get_identity_cmd, get_identity_exec};
 use crate::cmd::new_identity_cmd::{new_identity_cmd, new_identity_exec};
 use crate::{EncItConfig, EncItError};
-use clap::{App, ArgMatches, SubCommand};
+use clap::{App, Arg, ArgMatches, SubCommand};
 use std::rc::Rc;
 
 use crate::cmd::get_friends_cmd::{get_friends_cmd, get_friends_exec};
@@ -78,6 +78,13 @@ impl Commands for CommandsImpl {
 pub fn root_cmd<'a>() -> App<'a, 'a> {
     App::new("encit")
         .about("offline e2e encryption client")
+        .arg(
+            Arg::with_name("config")
+                .long("config")
+                .global(true)
+                .help("CONFIG_FILE")
+                .takes_value(true),
+        )
         .subcommand(encrypt_cmd())
         .subcommand(decrypt_cmd())
         .subcommand(

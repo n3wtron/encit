@@ -187,7 +187,7 @@ impl EncItImpl {
         identity: &EncItIdentity,
     ) -> Result<(JwtPayload, JweHeader), EncItError> {
         let decrypter = RSA_OAEP.decrypter_from_pem(identity.private_key().pem()?)?;
-        jwt::decode_with_decrypter(jwe, &decrypter).map_err(|e| e.into())
+        jwt::decode_with_decrypter(jwe.trim(), &decrypter).map_err(|e| e.into())
     }
 
     fn extract_jws(jws: Option<&str>, friend: &EncItFriend) -> Result<(bool, String), EncItError> {
@@ -227,7 +227,6 @@ pub mod tests {
 
     #[test]
     fn encrypt_decrypt_payload() -> Result<(), EncItError> {
-        env_logger::init();
         let encrypt_friend_name = "bob";
         let encrypt_identity_name = "alice";
         let (encrypt_friend_private_key, encrypt_friend) =
