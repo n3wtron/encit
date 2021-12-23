@@ -1,0 +1,68 @@
+<mat-toolbar color="primary">Decrypt</mat-toolbar>
+
+<div class="padded-content">
+  <form *ngIf="!result" class="centered-content">
+    <div>
+      <app-identity-select [(identity)]="identity"></app-identity-select>
+    </div>
+    <mat-accordion>
+      <mat-expansion-panel>
+        <mat-expansion-panel-header>
+          <mat-panel-title>Message</mat-panel-title>
+        </mat-expansion-panel-header>
+        <div>
+          <mat-form-field>
+            <mat-label>Message</mat-label>
+            <textarea
+              rows="10"
+              matInput
+              name="message"
+              [(ngModel)]="message"
+            ></textarea>
+          </mat-form-field>
+        </div>
+        <div class="bottom">
+          <button mat-raised-button color="primary" (click)="decryptMessage()">
+            Decrypt
+          </button>
+        </div>
+      </mat-expansion-panel>
+      <mat-expansion-panel>
+        <mat-expansion-panel-header>
+          <mat-panel-title>File</mat-panel-title>
+        </mat-expansion-panel-header>
+        <input type="file" name="file" (change)="uploadFile($event.target)">
+        <div class="bottom">
+          <button mat-raised-button color="primary" (click)="decryptFile()">
+            Decrypt
+          </button>
+        </div>
+      </mat-expansion-panel>
+    </mat-accordion>
+  </form>
+  <div *ngIf="result" class="centered-content">
+    <mat-card>
+      <mat-card-title>
+        {{result.subject}}
+      </mat-card-title>
+      <mat-card-subtitle>
+        From: {{result.sender}}
+      </mat-card-subtitle>
+      <mat-card-content>
+        <div *ngIf="result.messageType!=='FILE'">
+          {{result.payload}}
+        </div>
+
+      </mat-card-content>
+      <mat-card-actions class="bottom">
+        <button mat-raised-button color="primary" *ngIf="result.messageType==='FILE'" (click)="download()">
+          Download
+        </button>
+        <button mat-raised-button color="accent" (click)="reset()">
+          Reset
+        </button>
+      </mat-card-actions>
+    </mat-card>
+  </div>
+</div>
+

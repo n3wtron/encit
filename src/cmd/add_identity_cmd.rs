@@ -1,5 +1,4 @@
-use std::cell::RefCell;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use clap::{App, Arg, ArgMatches};
 
@@ -19,16 +18,16 @@ pub fn add_identity_cmd<'a>() -> App<'a, 'a> {
 
 pub fn add_identity_exec(
     arg_matches: &ArgMatches,
-    config: Rc<dyn EncItConfig>,
+    config: Arc<dyn EncItConfig>,
 ) -> Result<(), EncItError> {
-    let reader = RefCell::new(get_file_reader(arg_matches, "key-file")?);
-    add_identity(arg_matches, config, reader)
+    let mut reader = get_file_reader(arg_matches, "key-file")?;
+    add_identity(arg_matches, config, &mut reader)
 }
 
 fn add_identity(
     arg_matches: &ArgMatches,
-    config: Rc<dyn EncItConfig>,
-    reader: RefCell<Box<dyn EncItFileReader>>,
+    config: Arc<dyn EncItConfig>,
+    reader: &mut EncItFileReader,
 ) -> Result<(), EncItError> {
     let key = get_key(arg_matches, reader)?;
     let passphrase = arg_matches.value_of("passphrase");
@@ -55,6 +54,7 @@ mod tests {
     use openssl::rsa::Rsa;
     use openssl::symm::Cipher;
 
+    use crate::cmd::reader::ReaderType;
     use crate::config::MockEncItConfig;
     use crate::{EncItConfig, EncItPEM};
 
@@ -74,10 +74,9 @@ mod tests {
         let priv_key = Rsa::generate(2048).unwrap();
         let priv_key_hex = Arc::new(priv_key.private_key_to_pem().map(hex::encode).unwrap());
         let hex_key = Box::leak(Box::new(priv_key_hex));
-        let key_reader: RefCell<Box<dyn EncItFileReader>> =
-            RefCell::new(Box::new(hex_key.as_bytes()));
-        let cfg_mock: Rc<dyn EncItConfig> = Rc::new(MockEncItConfig::new());
-        let result = add_identity(&matches, cfg_mock, key_reader);
+        let mut key_reader = EncItFileReader::new(Box::new(hex_key.as_bytes()), ReaderType::Stdin);
+        let cfg_mock: Arc<dyn EncItConfig> = Arc::new(MockEncItConfig::new());
+        let result = add_identity(&matches, cfg_mock, &mut key_reader);
         assert!(result.is_err());
     }
 
@@ -96,12 +95,11 @@ mod tests {
         let priv_key_hex = Arc::new(priv_key.private_key_to_pem().map(hex::encode).unwrap());
         let expected_encit_pem = EncItPEM::Hex(priv_key_hex.to_string());
         let hex_key = Box::leak(Box::new(priv_key_hex));
-        let key_reader: RefCell<Box<dyn EncItFileReader>> =
-            RefCell::new(Box::new(hex_key.as_bytes()));
+        let mut key_reader = EncItFileReader::new(Box::new(hex_key.as_bytes()), ReaderType::Stdin);
         check_add_identity(
             identity_name,
             &matches,
-            key_reader,
+            &mut key_reader,
             expected_encit_pem,
             None,
         );
@@ -131,12 +129,12 @@ mod tests {
         let priv_key_base64 = Arc::new(base64::encode(priv_key_with_password.to_vec()));
         let expected_encit_pem = EncItPEM::Hex(priv_key_hex.to_string());
         let base64_key = Box::leak(Box::new(priv_key_base64));
-        let key_reader: RefCell<Box<dyn EncItFileReader>> =
-            RefCell::new(Box::new(base64_key.as_bytes()));
+        let mut key_reader =
+            EncItFileReader::new(Box::new(base64_key.as_bytes()), ReaderType::Stdin);
         check_add_identity(
             identity_name,
             &matches,
-            key_reader,
+            &mut key_reader,
             expected_encit_pem,
             Some(priv_key_password),
         );
@@ -145,7 +143,7 @@ mod tests {
     fn check_add_identity(
         identity_name: &'static str,
         matches: &ArgMatches,
-        key_reader: RefCell<Box<dyn EncItFileReader>>,
+        key_reader: &mut EncItFileReader,
         private_key: EncItPEM,
         passphrase: Option<&'static str>,
     ) {
@@ -165,7 +163,7 @@ mod tests {
                 Ok(Box::new(new_cfg))
             });
 
-        let cfg: Rc<dyn EncItConfig> = Rc::new(cfg_mock);
+        let cfg: Arc<dyn EncItConfig> = Arc::new(cfg_mock);
         add_identity(matches, cfg, key_reader).expect("add friend in error");
     }
 }

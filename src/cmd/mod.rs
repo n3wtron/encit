@@ -9,3 +9,4 @@ mod get_identity_cmd;
 mod new_identity_cmd;
 mod reader;
 pub mod root_cmd;
+mod web_cmd;

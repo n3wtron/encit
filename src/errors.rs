@@ -39,6 +39,8 @@ pub enum EncItError {
     InvalidCommand(String),
     #[error("GenericError: {0}")]
     GenericError(String),
+    #[error("WebError: {0}")]
+    WebError(String),
 }
 
 impl From<ConfigError> for EncItError {

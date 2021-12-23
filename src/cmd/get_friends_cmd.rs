@@ -3,6 +3,7 @@ use clap::{App, ArgMatches, SubCommand};
 use std::cell::RefCell;
 use std::io::{stdout, Write};
 use std::rc::Rc;
+use std::sync::Arc;
 
 pub fn get_friends_cmd<'a>() -> App<'a, 'a> {
     SubCommand::with_name("friends")
@@ -10,14 +11,14 @@ pub fn get_friends_cmd<'a>() -> App<'a, 'a> {
 
 pub fn get_friends_exec(
     cmd_matches: &ArgMatches,
-    config: Rc<dyn EncItConfig>,
+    config: Arc<dyn EncItConfig>,
 ) -> Result<(), EncItError> {
     get_friends(cmd_matches, config, Rc::new(RefCell::new(stdout())))
 }
 
 fn get_friends(
     _: &ArgMatches,
-    config: Rc<dyn EncItConfig>,
+    config: Arc<dyn EncItConfig>,
     writer: Rc<RefCell<dyn Write>>,
 ) -> Result<(), EncItError> {
     let mut mut_writer = writer.borrow_mut();
@@ -48,7 +49,7 @@ mod tests {
         cfg.expect_friends().with().return_const(friends);
         let writer: Rc<RefCell<Vec<u8>>> = Rc::new(RefCell::new(Vec::new()));
 
-        get_friends(&cmd_matches, Rc::new(cfg), writer.clone())?;
+        get_friends(&cmd_matches, Arc::new(cfg), writer.clone())?;
         let result = String::from_utf8(writer.borrow().to_vec())?;
         assert_eq!(result, "friend1\nfriend2\n");
         Ok(())

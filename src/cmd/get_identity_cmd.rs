@@ -3,6 +3,7 @@ use clap::{App, Arg, ArgMatches, SubCommand};
 use std::cell::RefCell;
 use std::io::{stdout, Write};
 use std::rc::Rc;
+use std::sync::Arc;
 
 pub fn get_identity_cmd<'a>() -> App<'a, 'a> {
     SubCommand::with_name("identity")
@@ -25,14 +26,14 @@ pub fn get_identity_cmd<'a>() -> App<'a, 'a> {
 
 pub fn get_identity_exec(
     arg_matches: &ArgMatches,
-    config: Rc<dyn EncItConfig>,
+    config: Arc<dyn EncItConfig>,
 ) -> Result<(), EncItError> {
     get_identity(arg_matches, config, Rc::new(RefCell::new(stdout())))
 }
 
 fn get_identity(
     arg_matches: &ArgMatches,
-    config: Rc<dyn EncItConfig>,
+    config: Arc<dyn EncItConfig>,
     writer: Rc<RefCell<dyn Write>>,
 ) -> Result<(), EncItError> {
     let identity_name = arg_matches.value_of("name").unwrap();
@@ -173,7 +174,7 @@ mod tests {
                 Some(output_identity)
             });
 
-        let config: Rc<dyn EncItConfig> = Rc::new(cfg);
+        let config: Arc<dyn EncItConfig> = Arc::new(cfg);
         let writer: Rc<RefCell<Vec<u8>>> = Rc::new(RefCell::new(Vec::new()));
         get_identity(&cmd_matches, config, writer.clone())?;
         let result = String::from_utf8(writer.borrow().to_vec())?;

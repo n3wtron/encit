@@ -1,0 +1,28 @@
+<mat-toolbar color="primary" class="top-menu mat-elevation-z6">
+  <span>EncIt</span>
+  <span class="space-invader"></span>
+  <a href="https://www.github.com/n3wtron/encit" target="_blank">
+    <mat-icon>public</mat-icon>
+  </a>
+</mat-toolbar>
+<div class="root">
+  <div class="menu">
+    <mat-list>
+      <mat-list-item routerLink="encrypt">
+        <mat-icon mat-list-icon>lock</mat-icon>
+        <a routerLink="encrypt">
+          <div mat-line>Encrypt</div>
+        </a>
+      </mat-list-item>
+      <mat-list-item routerLink="decrypt">
+        <mat-icon mat-list-icon>lock_open</mat-icon>
+        <a routerLink="decrypt">
+          <div mat-line>Decrypt</div>
+        </a>
+      </mat-list-item>
+    </mat-list>
+  </div>
+  <div class="main-content">
+    <router-outlet></router-outlet>
+  </div>
+</div>

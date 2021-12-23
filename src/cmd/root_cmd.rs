@@ -8,25 +8,27 @@ use crate::cmd::new_identity_cmd::{new_identity_cmd, new_identity_exec};
 use crate::{EncItConfig, EncItError};
 use clap::{App, Arg, ArgMatches, SubCommand};
 use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::cmd::get_friends_cmd::{get_friends_cmd, get_friends_exec};
 use crate::cmd::get_identities_cmd::{get_identities_cmd, get_identities_exec};
+use crate::cmd::web_cmd::{web_cmd, web_exec};
 #[cfg(test)]
 use mockall::automock;
 
 pub struct CommandsImpl {
-    config: Rc<dyn EncItConfig>,
+    config: Arc<dyn EncItConfig>,
 }
 
 impl CommandsImpl {
-    pub fn new(config: Rc<dyn EncItConfig>) -> Self {
+    pub fn new(config: Arc<dyn EncItConfig>) -> Self {
         CommandsImpl { config }
     }
 }
 
 #[cfg_attr(test, automock)]
 pub trait Commands {
-    fn get_config(&self) -> Rc<dyn EncItConfig>;
+    fn get_config(&self) -> Arc<dyn EncItConfig>;
     fn add_friend<'a>(&self, arg_matches: &'a ArgMatches<'a>) -> Result<(), EncItError>;
     fn add_identity<'a>(&self, arg_matches: &'a ArgMatches<'a>) -> Result<(), EncItError>;
     fn get_identity<'a>(&self, arg_matches: &'a ArgMatches<'a>) -> Result<(), EncItError>;
@@ -35,10 +37,11 @@ pub trait Commands {
     fn new_identity<'a>(&self, arg_matches: &'a ArgMatches<'a>) -> Result<(), EncItError>;
     fn encrypt<'a>(&self, arg_matches: &'a ArgMatches<'a>) -> Result<(), EncItError>;
     fn decrypt<'a>(&self, arg_matches: &'a ArgMatches<'a>) -> Result<(), EncItError>;
+    fn web<'a>(&self, arg_matches: &'a ArgMatches<'a>) -> Result<(), EncItError>;
 }
 
 impl Commands for CommandsImpl {
-    fn get_config(&self) -> Rc<dyn EncItConfig> {
+    fn get_config(&self) -> Arc<dyn EncItConfig> {
         self.config.clone()
     }
 
@@ -73,6 +76,10 @@ impl Commands for CommandsImpl {
     fn decrypt<'a>(&self, arg_matches: &'a ArgMatches<'a>) -> Result<(), EncItError> {
         decrypt_exec(arg_matches, self.get_config())
     }
+
+    fn web<'a>(&self, arg_matches: &'a ArgMatches<'a>) -> Result<(), EncItError> {
+        web_exec(arg_matches, self.get_config())
+    }
 }
 
 pub fn root_cmd<'a>() -> App<'a, 'a> {
@@ -105,6 +112,7 @@ pub fn root_cmd<'a>() -> App<'a, 'a> {
                 .about("create new identity to encIt")
                 .subcommand(new_identity_cmd()),
         )
+        .subcommand(web_cmd())
 }
 
 pub fn root_exec(commands: Rc<dyn Commands>, matches: &ArgMatches) -> Result<(), EncItError> {
@@ -126,6 +134,7 @@ pub fn root_exec(commands: Rc<dyn Commands>, matches: &ArgMatches) -> Result<(),
         },
         ("encrypt", Some(encrypt_matches)) => commands.encrypt(encrypt_matches),
         ("decrypt", Some(encrypt_matches)) => commands.decrypt(encrypt_matches),
+        ("web", Some(web_matches)) => commands.web(web_matches),
         (_, _) => Err(EncItError::InvalidCommand(String::new())),
     }
 }

@@ -1,34 +1,48 @@
 use crate::EncItError;
 use clap::ArgMatches;
-use std::any::Any;
 use std::fs::File;
-use std::io::{stdin, Read, Stdin};
+use std::io;
+use std::io::{stdin, Read};
 
-pub trait EncItFileReader: Read {
-    fn as_any(&self) -> &dyn Any;
+#[derive(PartialEq, Debug)]
+pub enum ReaderType {
+    Stdin,
+    File,
 }
 
-impl EncItFileReader for Stdin {
-    fn as_any(&self) -> &dyn Any {
-        self
+pub struct EncItFileReader {
+    reader: Box<dyn Read>,
+    reader_type: ReaderType,
+}
+
+impl EncItFileReader {
+    pub fn new(reader: Box<dyn Read>, reader_type: ReaderType) -> Self {
+        EncItFileReader {
+            reader,
+            reader_type,
+        }
     }
-}
-
-impl EncItFileReader for File {
-    fn as_any(&self) -> &dyn Any {
-        self
+    pub fn read_to_string(&mut self, buf: &mut String) -> io::Result<usize> {
+        self.reader.read_to_string(buf)
+    }
+    pub fn read_to_end(&mut self, buf: &mut Vec<u8>) -> io::Result<usize> {
+        self.reader.read_to_end(buf)
+    }
+    pub fn reader_type(&self) -> &ReaderType {
+        &self.reader_type
     }
 }
 
 pub fn get_file_reader(
     arg_matches: &ArgMatches,
     param_name: &str,
-) -> Result<Box<dyn EncItFileReader>, EncItError> {
+) -> Result<EncItFileReader, EncItError> {
     if let Some(file_path) = arg_matches.value_of(param_name) {
-        let fl: Box<dyn EncItFileReader> = Box::new(File::open(file_path)?);
-        Ok(fl)
+        Ok(EncItFileReader::new(
+            Box::new(File::open(file_path)?),
+            ReaderType::File,
+        ))
     } else {
-        let stdin: Box<dyn EncItFileReader> = Box::new(stdin());
-        Ok(stdin)
+        Ok(EncItFileReader::new(Box::new(stdin()), ReaderType::Stdin))
     }
 }

@@ -1,25 +1,68 @@
+use std::str::FromStr;
+use std::string::String;
+use std::sync::Arc;
+
 use josekit::jwe::{JweHeader, RSA_OAEP};
 use josekit::jws::{JwsHeader, RS256};
 use josekit::jwt::JwtPayload;
-use josekit::{jwt, Value};
+use josekit::{jwt, JoseHeader, Value};
 use log::debug;
+#[cfg(test)]
+use mockall::{automock, predicate::*};
 use serde::{Deserialize, Serialize};
-use std::rc::Rc;
-use std::string::String;
 
 use crate::config::{EncItConfig, EncItFriend, EncItIdentity};
 use crate::errors::EncItError;
 
-#[cfg(test)]
-use mockall::{automock, predicate::*};
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+pub enum MessageType {
+    PlainText,
+    File,
+    Unknown,
+}
+
+impl From<MessageType> for serde_json::Value {
+    fn from(message_type: MessageType) -> Self {
+        Value::String(message_type.into())
+    }
+}
+
+impl From<&serde_json::Value> for MessageType {
+    fn from(value: &Value) -> Self {
+        MessageType::from_str(value.as_str().unwrap()).unwrap_or(MessageType::Unknown)
+    }
+}
+
+impl From<MessageType> for String {
+    fn from(message_type: MessageType) -> Self {
+        match message_type {
+            MessageType::PlainText => "PLAINTEXT".to_string(),
+            MessageType::File => "FILE".to_string(),
+            MessageType::Unknown => "UNKNOWN".to_string(),
+        }
+    }
+}
+
+impl FromStr for MessageType {
+    type Err = EncItError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "PLAINTEXT" | "plaintext" => Ok(Self::PlainText),
+            "FILE" | "file" => Ok(Self::File),
+            _ => Err(EncItError::GenericError("Invalid Message Type".to_string())),
+        }
+    }
+}
 
 #[cfg_attr(test, automock)]
-pub trait EncIt {
+pub trait EncIt: Sync + Send {
     fn encrypt<'a>(
         &self,
         identity: &'a str,
         friend: &'a str,
         subject: Option<&'a str>,
+        message_type: MessageType,
         message: &'a str,
     ) -> Result<String, EncItError>;
     fn decrypt<'a>(
@@ -27,13 +70,17 @@ pub trait EncIt {
         jwe: &'a str,
         identity: Option<&'a str>,
     ) -> Result<EncItMessage, EncItError>;
+
+    fn get_config(&self) -> Arc<dyn EncItConfig>;
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct EncItMessage {
     sender: String,
     receiver: String,
     subject: Option<String>,
+    message_type: MessageType,
     payload: String,
     verified: bool,
 }
@@ -61,6 +108,7 @@ impl EncItMessage {
         sender: String,
         receiver: String,
         subject: Option<String>,
+        message_type: MessageType,
         payload: String,
         verified: bool,
     ) -> Self {
@@ -68,6 +116,7 @@ impl EncItMessage {
             sender,
             receiver,
             subject,
+            message_type,
             payload,
             verified,
         }
@@ -75,7 +124,7 @@ impl EncItMessage {
 }
 
 pub struct EncItImpl {
-    config: Rc<dyn EncItConfig>,
+    config: Arc<dyn EncItConfig>,
 }
 
 impl EncIt for EncItImpl {
@@ -84,6 +133,7 @@ impl EncIt for EncItImpl {
         identity: &str,
         friend: &str,
         subject: Option<&str>,
+        message_type: MessageType,
         message: &str,
     ) -> Result<String, EncItError> {
         let identity = self
@@ -97,7 +147,7 @@ impl EncIt for EncItImpl {
 
         let jws = Self::create_jws(message, identity)?;
         debug!("jws:{}", &jws);
-        let jwe = Self::create_jwe(subject, &jws, identity, friend)?;
+        let jwe = Self::create_jwe(subject.as_deref(), &jws, message_type, identity, friend)?;
         debug!("jwe:{}", &jwe);
         Ok(jwe)
     }
@@ -116,6 +166,7 @@ impl EncIt for EncItImpl {
         debug!("Identity found:{}", identity.name());
 
         let (payload, header) = Self::extract_jwe(jwe, identity)?;
+        debug!("jwe headers: {:?}", &header);
 
         let friend = payload
             .issuer()
@@ -133,20 +184,29 @@ impl EncIt for EncItImpl {
             sender: friend.name().to_string(),
             receiver: identity.name().to_string(),
             subject: header.subject().map(|s| s.to_string()),
+            message_type: header
+                .claim("type")
+                .map(|s| s.into())
+                .unwrap_or(MessageType::Unknown),
             payload: message,
             verified,
         })
     }
+
+    fn get_config(&self) -> Arc<dyn EncItConfig> {
+        self.config.clone()
+    }
 }
 
 impl EncItImpl {
-    pub fn new(config: Rc<dyn EncItConfig>) -> Self {
+    pub fn new(config: Arc<dyn EncItConfig>) -> Self {
         EncItImpl { config }
     }
 
     fn create_jwe(
         subject: Option<&str>,
         message: &str,
+        message_type: MessageType,
         identity: &EncItIdentity,
         friend: &EncItFriend,
     ) -> Result<String, EncItError> {
@@ -159,6 +219,7 @@ impl EncItImpl {
             jwe_header.set_subject(subject);
         }
         jwe_header.set_claim("rcp", Some(friend.public_key().sha_pem()?.into()))?;
+        jwe_header.set_claim("type", Some(message_type.into()))?;
         let mut payload = JwtPayload::new();
         payload.set_issuer(identity_pub_key_sha);
         payload.set_claim("message", Some(Value::String(message.to_string())))?;
@@ -227,6 +288,7 @@ pub mod tests {
 
     #[test]
     fn encrypt_decrypt_payload() -> Result<(), EncItError> {
+        let _ = env_logger::try_init();
         let encrypt_friend_name = "bob";
         let encrypt_identity_name = "alice";
         let (encrypt_friend_private_key, encrypt_friend) =
@@ -250,7 +312,7 @@ pub mod tests {
             .with(eq(encrypt_identity_name))
             .returning(|_f| Some(encrypt_identity));
 
-        let encrypt_cfg: Rc<dyn EncItConfig> = Rc::new(encrypt_cfg_mock);
+        let encrypt_cfg: Arc<dyn EncItConfig> = Arc::new(encrypt_cfg_mock);
         let enc_it = EncItImpl::new(encrypt_cfg);
 
         let plain_message = "hello";
@@ -258,6 +320,7 @@ pub mod tests {
             encrypt_identity_name,
             encrypt_friend_name,
             Some("subject"),
+            MessageType::PlainText,
             plain_message,
         )?;
 
@@ -279,13 +342,14 @@ pub mod tests {
             .with(eq(encrypt_identity_public_key_sha.as_str()))
             .returning(|_| Some(decrypt_friend));
 
-        let decrypt_cfg_mock: Rc<dyn EncItConfig> = Rc::new(decrypt_cfg_mock);
+        let decrypt_cfg_mock: Arc<dyn EncItConfig> = Arc::new(decrypt_cfg_mock);
         let enc_it = EncItImpl::new(decrypt_cfg_mock);
         let decrypted = enc_it.decrypt(&enc_msg, None);
 
         let message = decrypted?;
         assert_eq!(message.payload, plain_message);
         assert_eq!(message.subject, Some("subject".to_string()));
+        assert_eq!(message.message_type, MessageType::PlainText);
         assert!(message.verified);
         assert_eq!(message.sender, encrypt_identity.name());
         assert_eq!(message.receiver, encrypt_friend.name());

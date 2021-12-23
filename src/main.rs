@@ -6,7 +6,9 @@ use std::env;
 use std::fs::create_dir;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+use std::sync::Arc;
 
+mod api;
 mod cmd;
 mod config;
 mod enc;
@@ -27,13 +29,13 @@ fn main() -> Result<(), EncItError> {
             .join(".encit")
             .join("config.yml")
     };
-    let config: Rc<dyn EncItConfig> = get_config(config_file.as_path())?;
+    let config: Arc<dyn EncItConfig> = get_config(config_file.as_path())?;
     let commands = Rc::new(CommandsImpl::new(config));
 
     root_exec(commands, &matches)
 }
 
-fn get_config(config_file: &Path) -> Result<Rc<dyn EncItConfig>, EncItError> {
+fn get_config(config_file: &Path) -> Result<Arc<dyn EncItConfig>, EncItError> {
     let config = if !&config_file.exists() {
         let config_dir = config_file.parent().unwrap();
         if !config_dir.exists() {
@@ -43,7 +45,7 @@ fn get_config(config_file: &Path) -> Result<Rc<dyn EncItConfig>, EncItError> {
     } else {
         EncItConfigImpl::load(config_file)?
     };
-    Ok(Rc::new(config))
+    Ok(Arc::new(config))
 }
 
 #[cfg(test)]

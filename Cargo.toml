@@ -4,24 +4,34 @@ version = "0.1.0"
 edition = "2021"
 authors = ["n3wtron@gmail.com"]
 description = "E2E Offlline encryption CLI"
+build = "build.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+default = ["ui"]
+ui = ["actix-web-static-files"]
 
 [dependencies]
 config = "0.11.0"
 clap = "2"
 openssl = "0.10.38"
-serde = { version = "1.0.130", features = ["derive"] }
+serde = "1.0.130"
 serde_yaml = "0.8.21"
 serde_json = "1.0.72"
 thiserror = "1.0.30"
-tempfile="3.2.0"
+tempfile = "3.2.0"
 base64 = "0.13.0"
 dirs = "4.0.0"
 josekit = "0.7.4"
 log = "0.4.14"
 env_logger = "0.9.0"
 hex = "0.4.3"
+futures = "0.3"
+async-trait = "0.1.52"
+actix-web = "3.0"
+actix-cors = "0.5.4"
+actix-web-static-files = { version = "3.0", optional = true }
 
 [dev-dependencies]
 indoc = "1.0.3"
@@ -32,6 +42,9 @@ rand = "0.8.4"
 version = "1"
 default-features = false # Disable features which are enabled by default
 features = ["precommit-hook", "run-cargo-fmt", "run-cargo-test", "run-cargo-clippy"]
+
+[build-dependencies]
+actix-web-static-files = "3.0"
 
 [package.metadata.deb]
 license-file = ["LICENSE", "0"]

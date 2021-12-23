@@ -1,0 +1,25 @@
+.root{
+  display: flex;
+  flex-direction: row;
+  height: calc(100% - 64px);
+}
+
+.menu{
+  margin-top: 64px;
+  height: 100%;
+  border-right: 1px solid #000000;
+  flex: 0 0 200px;
+}
+
+.top-menu{
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+}
+
+.main-content{
+  margin-top: 64px;
+  display: flex;
+  width: 100%;
+}

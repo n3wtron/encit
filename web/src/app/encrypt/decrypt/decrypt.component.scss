@@ -1,0 +1,29 @@
+:host {
+  width: 100%;
+}
+
+.padded-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.centered-content {
+  width: 800px;
+  max-width: 800px;
+}
+
+.mat-form-field {
+  width: 100%;
+}
+
+.bottom {
+  display: flex;
+  flex-direction: row;
+  justify-content: end;
+}
+
+.bottom button {
+  flex: 0 1 auto;
+  margin-left: 5px;
+}

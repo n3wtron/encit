@@ -158,7 +158,7 @@ impl EncItFriend {
 }
 
 #[cfg_attr(test, automock)]
-pub trait EncItConfig {
+pub trait EncItConfig: Sync + Send {
     fn identity<'a>(&'a self, identity: &str) -> Option<&'a EncItIdentity>;
     fn identity_by_public_key_sha<'a>(
         &'a self,
@@ -322,10 +322,10 @@ impl EncItConfig for EncItConfigImpl {
 #[cfg(test)]
 pub mod tests {
     use std::io::{Read, Seek, Write};
+    use std::string::String;
 
     use indoc::indoc;
     use openssl::symm::Cipher;
-    use std::string::String;
     use tempfile::NamedTempFile;
 
     use super::*;

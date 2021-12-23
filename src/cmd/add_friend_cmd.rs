@@ -3,21 +3,20 @@ use crate::cmd::reader::{get_file_reader, EncItFileReader};
 use crate::EncItError::InvalidCommand;
 use crate::{EncItConfig, EncItError, EncItPEM};
 use clap::ArgMatches;
-use std::cell::RefCell;
-use std::rc::Rc;
+use std::sync::Arc;
 
 pub fn add_friend_exec(
     arg_matches: &ArgMatches,
-    config: Rc<dyn EncItConfig>,
+    config: Arc<dyn EncItConfig>,
 ) -> Result<(), EncItError> {
-    let key_reader = RefCell::new(get_file_reader(arg_matches, "key-file")?);
-    add_friend(arg_matches, config, key_reader)
+    let mut key_reader = get_file_reader(arg_matches, "key-file")?;
+    add_friend(arg_matches, config, &mut key_reader)
 }
 
 fn add_friend(
     arg_matches: &ArgMatches,
-    config: Rc<dyn EncItConfig>,
-    key_reader: RefCell<Box<dyn EncItFileReader>>,
+    config: Arc<dyn EncItConfig>,
+    key_reader: &mut EncItFileReader,
 ) -> Result<(), EncItError> {
     let key = get_key(arg_matches, key_reader)?;
     // check if is a valid public key
@@ -34,15 +33,11 @@ fn add_friend(
 
 #[cfg(test)]
 mod tests {
-    use std::any::Any;
-    use std::rc::Rc;
-    use std::sync::Arc;
-
     use mockall::predicate::eq;
     use openssl::rsa::Rsa;
 
     use crate::cmd::add_cmd::add_cmd;
-    use crate::cmd::reader::EncItFileReader;
+    use crate::cmd::reader::{EncItFileReader, ReaderType};
     use crate::config::MockEncItConfig;
     use crate::{EncItConfig, EncItPEM};
 
@@ -57,10 +52,9 @@ mod tests {
         let priv_key = Rsa::generate(2048).unwrap();
         let pub_key_hex = Arc::new(priv_key.public_key_to_pem().map(hex::encode).unwrap());
         let hex_key = Box::leak(Box::new(pub_key_hex));
-        let key_reader: RefCell<Box<dyn EncItFileReader>> =
-            RefCell::new(Box::new(hex_key.as_bytes()));
-        let cfg_mock: Rc<dyn EncItConfig> = Rc::new(MockEncItConfig::new());
-        let result = add_friend(&matches, cfg_mock, key_reader);
+        let mut key_reader = EncItFileReader::new(Box::new(hex_key.as_bytes()), ReaderType::Stdin);
+        let cfg_mock: Arc<dyn EncItConfig> = Arc::new(MockEncItConfig::new());
+        let result = add_friend(&matches, cfg_mock, &mut key_reader);
         assert!(result.is_err());
     }
 
@@ -74,9 +68,8 @@ mod tests {
         let pub_key_hex = Arc::new(priv_key.public_key_to_pem().map(hex::encode).unwrap());
         let expected_encit_pem = EncItPEM::Hex(pub_key_hex.to_string());
         let hex_key = Box::leak(Box::new(pub_key_hex));
-        let key_reader: RefCell<Box<dyn EncItFileReader>> =
-            RefCell::new(Box::new(hex_key.as_bytes()));
-        check_add_friend(friend_name, &matches, key_reader, expected_encit_pem);
+        let mut key_reader = EncItFileReader::new(Box::new(hex_key.as_bytes()), ReaderType::Stdin);
+        check_add_friend(friend_name, &matches, &mut key_reader, expected_encit_pem);
     }
 
     #[test]
@@ -95,15 +88,15 @@ mod tests {
         let pub_key_base64 = Arc::new(priv_key.public_key_to_pem().map(base64::encode).unwrap());
         let expected_encit_pem = EncItPEM::Hex(pub_key_hex.to_string());
         let base64_key = Box::leak(Box::new(pub_key_base64));
-        let key_reader: RefCell<Box<dyn EncItFileReader>> =
-            RefCell::new(Box::new(base64_key.as_bytes()));
-        check_add_friend(friend_name, &matches, key_reader, expected_encit_pem);
+        let mut key_reader =
+            EncItFileReader::new(Box::new(base64_key.as_bytes()), ReaderType::Stdin);
+        check_add_friend(friend_name, &matches, &mut key_reader, expected_encit_pem);
     }
 
     fn check_add_friend(
         friend_name: &'static str,
         matches: &ArgMatches,
-        key_reader: RefCell<Box<dyn EncItFileReader>>,
+        key_reader: &mut EncItFileReader,
         expected_encit_pem: EncItPEM,
     ) {
         let mut cfg_mock = MockEncItConfig::new();
@@ -116,13 +109,7 @@ mod tests {
                 Ok(Box::new(new_cfg))
             });
 
-        let cfg: Rc<dyn EncItConfig> = Rc::new(cfg_mock);
+        let cfg: Arc<dyn EncItConfig> = Arc::new(cfg_mock);
         add_friend(matches, cfg, key_reader).expect("add friend in error");
-    }
-
-    impl EncItFileReader for &'static [u8] {
-        fn as_any(&self) -> &dyn Any {
-            self
-        }
     }
 }

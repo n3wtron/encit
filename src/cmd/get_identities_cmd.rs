@@ -3,6 +3,7 @@ use clap::{App, ArgMatches, SubCommand};
 use std::cell::RefCell;
 use std::io::{stdout, Write};
 use std::rc::Rc;
+use std::sync::Arc;
 
 pub fn get_identities_cmd<'a>() -> App<'a, 'a> {
     SubCommand::with_name("identities")
@@ -10,7 +11,7 @@ pub fn get_identities_cmd<'a>() -> App<'a, 'a> {
 
 pub fn get_identities_exec(
     cmd_matches: &ArgMatches,
-    config: Rc<dyn EncItConfig>,
+    config: Arc<dyn EncItConfig>,
 ) -> Result<(), EncItError> {
     let writer = Rc::new(RefCell::new(stdout()));
     get_identities(cmd_matches, config, writer)
@@ -18,7 +19,7 @@ pub fn get_identities_exec(
 
 pub fn get_identities(
     _: &ArgMatches,
-    config: Rc<dyn EncItConfig>,
+    config: Arc<dyn EncItConfig>,
     writer: Rc<RefCell<dyn Write>>,
 ) -> Result<(), EncItError> {
     let mut writer_mut = writer.borrow_mut();
@@ -49,7 +50,7 @@ mod tests {
         cfg.expect_identities().with().return_const(identities);
         let writer: Rc<RefCell<Vec<u8>>> = Rc::new(RefCell::new(Vec::new()));
 
-        get_identities(&cmd_matches, Rc::new(cfg), writer.clone())?;
+        get_identities(&cmd_matches, Arc::new(cfg), writer.clone())?;
         let result = String::from_utf8(writer.borrow().to_vec())?;
         assert_eq!(result, "identity1\nidentity2\n");
         Ok(())

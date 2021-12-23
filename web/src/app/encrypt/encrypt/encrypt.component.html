@@ -1,0 +1,55 @@
+<mat-toolbar color="primary">Encrypt</mat-toolbar>
+
+<div class="padded-content">
+  <form>
+    <div>
+      <app-identity-select [(identity)]="identity"></app-identity-select>
+    </div>
+    <div>
+      <app-friend-select [(friend)]="friend"></app-friend-select>
+    </div>
+    <div>
+      <mat-form-field>
+        <mat-label>Subject</mat-label>
+        <input type="text" matInput name="subject" [(ngModel)]="subject"/>
+      </mat-form-field>
+    </div>
+    <mat-accordion>
+      <mat-expansion-panel>
+        <mat-expansion-panel-header>
+          <mat-panel-title>Message</mat-panel-title>
+        </mat-expansion-panel-header>
+        <div>
+          <mat-form-field>
+            <mat-label>Message</mat-label>
+            <textarea
+              rows="10"
+              matInput
+              name="message"
+              [(ngModel)]="message"
+            ></textarea>
+          </mat-form-field>
+        </div>
+        <div class="bottom">
+          <button mat-raised-button color="primary" (click)="encryptMessage(true)">
+            Encrypt To File
+          </button>
+          <button mat-raised-button color="primary" (click)="encryptMessage()">
+            Encrypt To Clipboard
+          </button>
+        </div>
+      </mat-expansion-panel>
+      <mat-expansion-panel>
+        <mat-expansion-panel-header>
+          <mat-panel-title>File</mat-panel-title>
+        </mat-expansion-panel-header>
+        <input type="file" name="file" (change)="uploadFile($event.target)">
+        <div class="bottom">
+          <button mat-raised-button color="primary" (click)="encryptFile()">
+            Encrypt
+          </button>
+        </div>
+      </mat-expansion-panel>
+    </mat-accordion>
+  </form>
+</div>

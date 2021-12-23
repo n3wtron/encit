@@ -1,0 +1,6 @@
+<mat-form-field>
+  <mat-label>Identity</mat-label>
+  <mat-select name="identity" [ngModel]="identity" (ngModelChange)="setModel($event)">
+    <mat-option *ngFor="let identity of identities" [value]="identity">{{identity.name}}</mat-option>
+  </mat-select>
+</mat-form-field>

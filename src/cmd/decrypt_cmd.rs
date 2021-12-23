@@ -3,8 +3,9 @@ use crate::enc::{EncIt, EncItImpl};
 use crate::{EncItConfig, EncItError};
 use clap::{App, Arg, ArgMatches, SubCommand};
 use std::cell::RefCell;
-use std::io::{stdout, Read, Write};
+use std::io::{stdout, Write};
 use std::rc::Rc;
+use std::sync::Arc;
 
 pub fn decrypt_cmd<'a>() -> App<'a, 'a> {
     SubCommand::with_name("decrypt")
@@ -26,23 +27,23 @@ pub fn decrypt_cmd<'a>() -> App<'a, 'a> {
 
 pub fn decrypt_exec(
     cmd_matches: &ArgMatches,
-    config: Rc<dyn EncItConfig>,
+    config: Arc<dyn EncItConfig>,
 ) -> Result<(), EncItError> {
     let enc_it = Rc::new(EncItImpl::new(config));
-    let reader = RefCell::new(get_file_reader(cmd_matches, "file")?);
+    let mut reader = get_file_reader(cmd_matches, "file")?;
     let rc_stdout: Rc<RefCell<dyn Write>> = Rc::new(RefCell::new(stdout()));
-    decrypt(cmd_matches, enc_it, reader, rc_stdout)
+    decrypt(cmd_matches, enc_it, &mut reader, rc_stdout)
 }
 
 fn decrypt(
     cmd_matches: &ArgMatches,
     enc_it: Rc<dyn EncIt>,
-    reader: RefCell<Box<dyn EncItFileReader>>,
+    reader: &mut EncItFileReader,
     writer: Rc<RefCell<dyn Write>>,
 ) -> Result<(), EncItError> {
     let identity = cmd_matches.value_of("identity");
     let mut encrypted_message = String::new();
-    reader.borrow_mut().read_to_string(&mut encrypted_message)?;
+    reader.read_to_string(&mut encrypted_message)?;
 
     let decrypted_message = enc_it.decrypt(&encrypted_message, identity)?;
     let mut writer = writer.borrow_mut();
@@ -58,7 +59,8 @@ fn decrypt(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::enc::{EncItMessage, MockEncIt};
+    use crate::cmd::reader::ReaderType;
+    use crate::enc::{EncItMessage, MessageType, MockEncIt};
     use crate::EncItError;
     use rand::distributions::Alphanumeric;
     use rand::{thread_rng, Rng};
@@ -85,15 +87,16 @@ mod tests {
                     "sender".to_string(),
                     "receiver".to_string(),
                     None,
+                    MessageType::PlainText,
                     base64_payload,
                     true,
                 ))
             });
         let rc_encit_mock = Rc::new(encit_mock);
-        let reader = RefCell::new(Box::new(jwe_message2.as_bytes()));
+        let mut reader = EncItFileReader::new(Box::new(jwe_message2.as_bytes()), ReaderType::Stdin);
 
         let writer: Rc<RefCell<Vec<u8>>> = Rc::new(RefCell::new(Vec::new()));
-        decrypt(&cmd_matches, rc_encit_mock, reader, writer.clone())?;
+        decrypt(&cmd_matches, rc_encit_mock, &mut reader, writer.clone())?;
 
         let result = String::from_utf8(writer.borrow().to_vec())?;
         assert_eq!(result, "payload");
@@ -124,15 +127,16 @@ mod tests {
                     "sender".to_string(),
                     "receiver".to_string(),
                     None,
+                    MessageType::PlainText,
                     base64_payload,
                     true,
                 ))
             });
         let rc_encit_mock = Rc::new(encit_mock);
-        let reader = RefCell::new(Box::new(jwe_message2.as_bytes()));
+        let mut reader = EncItFileReader::new(Box::new(jwe_message2.as_bytes()), ReaderType::Stdin);
 
         let writer: Rc<RefCell<Vec<u8>>> = Rc::new(RefCell::new(Vec::new()));
-        decrypt(&cmd_matches, rc_encit_mock, reader, writer.clone())?;
+        decrypt(&cmd_matches, rc_encit_mock, &mut reader, writer.clone())?;
 
         let result = String::from_utf8(writer.borrow().to_vec())?;
         assert_eq!(result, "payload");
@@ -156,6 +160,7 @@ mod tests {
             "sender".to_string(),
             "receiver".to_string(),
             None,
+            MessageType::PlainText,
             base64_payload,
             true,
         );
@@ -167,10 +172,10 @@ mod tests {
             .withf(move |jwe_param, opt_identity| jwe_param == jwe_message && *opt_identity == None)
             .returning(move |_, _| Ok((*mock_output).clone()));
         let rc_encit_mock = Rc::new(encit_mock);
-        let reader = RefCell::new(Box::new(jwe_message2.as_bytes()));
+        let mut reader = EncItFileReader::new(Box::new(jwe_message2.as_bytes()), ReaderType::Stdin);
 
         let writer: Rc<RefCell<Vec<u8>>> = Rc::new(RefCell::new(Vec::new()));
-        decrypt(&cmd_matches, rc_encit_mock, reader, writer.clone())?;
+        decrypt(&cmd_matches, rc_encit_mock, &mut reader, writer.clone())?;
 
         let result = String::from_utf8(writer.borrow().to_vec())?;
         assert_eq!(result, json_expected_message);

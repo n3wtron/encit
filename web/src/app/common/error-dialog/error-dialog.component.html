@@ -1,0 +1,12 @@
+<mat-panel-title>
+  <mat-icon color="warn">error</mat-icon>
+  Error
+</mat-panel-title>
+<div>
+  {{errorMessage}}
+</div>
+<div>
+  <button mat-raised-button color="primary" (click)="errorService.resetError()">
+    Close
+  </button>
+</div>

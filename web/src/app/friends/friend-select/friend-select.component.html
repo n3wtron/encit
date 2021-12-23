@@ -1,0 +1,6 @@
+<mat-form-field>
+  <mat-label>Friend</mat-label>
+  <mat-select name="friend" [ngModel]="friend" (ngModelChange)="setModel($event)">
+    <mat-option *ngFor="let friend of friends" [value]="friend">{{friend.name}}</mat-option>
+  </mat-select>
+</mat-form-field>

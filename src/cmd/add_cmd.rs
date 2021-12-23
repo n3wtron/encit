@@ -1,8 +1,6 @@
 use crate::cmd::reader::EncItFileReader;
 use crate::{EncItError, EncItPEM};
 use clap::{App, Arg, ArgMatches, SubCommand};
-use std::cell::RefCell;
-use std::io::Read;
 
 pub fn add_cmd<'a>(name: &str) -> App<'a, 'a> {
     SubCommand::with_name(name)
@@ -30,10 +28,10 @@ pub fn add_cmd<'a>(name: &str) -> App<'a, 'a> {
 
 pub fn get_key(
     arg_matches: &ArgMatches,
-    reader: RefCell<Box<dyn EncItFileReader>>,
+    reader: &mut EncItFileReader,
 ) -> Result<EncItPEM, EncItError> {
     let mut key_content = String::new();
-    reader.borrow_mut().read_to_string(&mut key_content)?;
+    reader.read_to_string(&mut key_content)?;
     let format = arg_matches.value_of("format").unwrap();
     match format {
         "pem" => Ok(EncItPEM::Pem(key_content)),
@@ -46,10 +44,8 @@ pub fn get_key(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cmd::reader::get_file_reader;
+    use crate::cmd::reader::{get_file_reader, ReaderType};
     use crate::EncItError;
-    use std::fs::File;
-    use std::io::Stdin;
     use tempfile::NamedTempFile;
 
     #[test]
@@ -58,8 +54,7 @@ mod tests {
         let matches =
             cmd.get_matches_from(vec!["test", "--name", "test", "--format", "base64-pem"]);
         let reader = get_file_reader(&matches, "key-file")?;
-        let file = reader.as_any().downcast_ref::<Stdin>();
-        assert!(file.is_some());
+        assert_eq!(*reader.reader_type(), ReaderType::Stdin);
         Ok(())
     }
 
@@ -76,8 +71,7 @@ mod tests {
             key_file.path().to_str().unwrap(),
         ]);
         let reader = get_file_reader(&matches, "key-file")?;
-        let file = reader.as_any().downcast_ref::<File>();
-        assert!(file.is_some());
+        assert_eq!(*reader.reader_type(), ReaderType::File);
         Ok(())
     }
 }
