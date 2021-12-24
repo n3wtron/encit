@@ -24,6 +24,13 @@ import { DecryptComponent } from './encrypt/decrypt/decrypt.component';
 import {MatCardModule} from "@angular/material/card";
 import { ErrorDialogComponent } from './common/error-dialog/error-dialog.component';
 import {MatDialogModule} from "@angular/material/dialog";
+import { NewIdentityComponent } from './identities/new-identity/new-identity.component';
+import { IdentitiesComponent } from './identities/identities/identities.component';
+import {MatTooltipModule} from "@angular/material/tooltip";
+import {MatMenuModule} from "@angular/material/menu";
+import {FriendsComponent} from "./friends/friends/friends.component";
+import {AddFriendComponent} from "./friends/add-friend/add-friend.component";
+import {MatButtonToggleModule} from "@angular/material/button-toggle";
 
 @NgModule({
   declarations: [
@@ -33,6 +40,10 @@ import {MatDialogModule} from "@angular/material/dialog";
     EncryptComponent,
     DecryptComponent,
     ErrorDialogComponent,
+    NewIdentityComponent,
+    IdentitiesComponent,
+    AddFriendComponent,
+    FriendsComponent,
   ],
   imports: [
     BrowserModule,
@@ -52,7 +63,10 @@ import {MatDialogModule} from "@angular/material/dialog";
     FormsModule,
     MatExpansionModule,
     MatCardModule,
-    MatDialogModule
+    MatDialogModule,
+    MatTooltipModule,
+    MatMenuModule,
+    MatButtonToggleModule,
   ],
   providers: [],
   bootstrap: [AppComponent],

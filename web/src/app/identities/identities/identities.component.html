@@ -1,0 +1,37 @@
+<mat-toolbar color="primary">Identities</mat-toolbar>
+
+<div class="padded-content">
+  <mat-card class="centered-content">
+    <mat-card-content>
+      <mat-list>
+        <mat-list-item *ngFor="let identity of identities">
+          <mat-icon mat-list-icon>perm_identity</mat-icon>
+          <span style="display: flex; align-items: center; width: 100%;">
+            {{identity.name}}
+            <span class="space-invader"></span>
+            <button [matMenuTriggerFor]="menu" color="primary" mat-icon-button
+                    matTooltip="Export Public Key">
+              <mat-icon>save_alt</mat-icon>
+            </button>
+            <mat-menu #menu="matMenu">
+              <button (click)="exportPublicKeyToFile(identity)" mat-menu-item>
+                <mat-icon>file_copy</mat-icon>
+                <span>To File</span>
+              </button>
+              <button (click)="exportPublicKeyToClipboard(identity)" mat-menu-item>
+                <mat-icon>content_copy</mat-icon>
+                <span>To Clipboard</span>
+              </button>
+            </mat-menu>
+          </span>
+        </mat-list-item>
+      </mat-list>
+    </mat-card-content>
+    <mat-card-actions>
+      <button (click)="open_new_identity_dialog()" color="primary" mat-raised-button>
+        <mat-icon>person_add</mat-icon>
+        <span>New Identity</span>
+      </button>
+    </mat-card-actions>
+  </mat-card>
+</div>

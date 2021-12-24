@@ -1,0 +1,38 @@
+<mat-card>
+  <mat-card-title>
+    Add Friend
+  </mat-card-title>
+  <form>
+    <div>
+      <mat-form-field>
+        <mat-label>Name</mat-label>
+        <input [(ngModel)]="name" matInput name="name">
+      </mat-form-field>
+    </div>
+    <div>
+      <div>
+      Public Key type:
+      </div>
+      <mat-button-toggle-group [(ngModel)]="keyFormat" name="publicKeyType">
+        <mat-button-toggle value="PEM">PEM</mat-button-toggle>
+        <mat-button-toggle value="BASE64">BASE64</mat-button-toggle>
+        <mat-button-toggle value="HEX">HEX</mat-button-toggle>
+      </mat-button-toggle-group>
+    </div>
+    <div>
+      <mat-form-field>
+        <mat-label>Public Key</mat-label>
+        <textarea [(ngModel)]="publicKey" rows="10" matInput name="publicKey">
+      </textarea>
+      </mat-form-field>
+    </div>
+  </form>
+  <mat-card-actions>
+    <button (click)="add()" color="primary" mat-raised-button>
+      Add
+    </button>
+    <button (click)="close()" color="accent" mat-raised-button>
+      Close
+    </button>
+  </mat-card-actions>
+</mat-card>

@@ -1,6 +1,5 @@
-use crate::{EncItConfig, EncItError, EncItPEM};
+use crate::{EncItConfig, EncItError};
 use clap::{App, Arg, ArgMatches, SubCommand};
-use openssl::rsa::Rsa;
 
 use std::sync::Arc;
 
@@ -13,9 +12,7 @@ pub fn new_identity_exec(
     config: Arc<dyn EncItConfig>,
 ) -> Result<(), EncItError> {
     let identity_name = arg_matches.value_of("name").unwrap();
-    let key = Rsa::generate(2048)?;
-    let key = EncItPEM::Hex(hex::encode(key.private_key_to_pem()?));
-    config.add_identity(identity_name, &key, None)?.save()
+    config.new_identity(identity_name)?.save()
 }
 
 #[cfg(test)]
@@ -31,14 +28,12 @@ mod tests {
         let cmd_matches = cmd.get_matches_from(vec!["identity", identity_name]);
         let mut cfg_mock = MockEncItConfig::new();
         cfg_mock
-            .expect_add_identity()
-            .withf(move |identity_name_param, _, passphrase| {
-                identity_name_param == identity_name && passphrase.is_none()
-            })
-            .returning(|_, _, _| {
+            .expect_new_identity()
+            .withf(move |identity_name_param| identity_name_param == identity_name)
+            .returning(|_| {
                 let mut new_cfg = MockEncItConfig::new();
                 new_cfg.expect_save().returning(|| Ok(()));
-                Ok(Box::new(new_cfg))
+                Ok(Arc::new(new_cfg))
             });
         new_identity_exec(&cmd_matches, Arc::new(cfg_mock))?;
 

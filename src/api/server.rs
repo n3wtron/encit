@@ -1,5 +1,5 @@
 use actix_cors::Cors;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use actix_web::rt::System;
 use actix_web::{web, App, HttpResponse, HttpServer, Responder};
@@ -12,11 +12,11 @@ include!(concat!(env!("OUT_DIR"), "/generated.rs"));
 
 pub struct WebServer {
     host: String,
-    enc_it: Arc<dyn EncIt>,
+    enc_it: Arc<Mutex<Box<dyn EncIt>>>,
 }
 
 impl WebServer {
-    pub fn new(host: &str, enc_it: Arc<dyn EncIt>) -> Self {
+    pub fn new(host: &str, enc_it: Arc<Mutex<Box<dyn EncIt>>>) -> Self {
         WebServer {
             host: host.to_string(),
             enc_it,
@@ -44,10 +44,15 @@ impl WebServer {
                 .route("/health", web::get().to(Self::health))
                 .route("/v1/identities", web::get().to(|| self.get_identities()))
                 .route(
+                    "/v1/identities",
+                    web::post().to(|body| self.new_identity(body)),
+                )
+                .route(
                     "/v1/identities/{identity}",
                     web::get().to(|path| self.get_identity(path)),
                 )
                 .route("/v1/friends", web::get().to(|| self.get_friends()))
+                .route("/v1/friends", web::post().to(|body| self.add_friend(body)))
                 .route(
                     "/v1/friends/{friend}",
                     web::get().to(|path| self.get_friend(path)),
@@ -70,7 +75,7 @@ impl WebServer {
         sys.run().map_err(|e| EncItError::WebError(e.to_string()))
     }
 
-    pub fn enc_it(&self) -> Arc<dyn EncIt> {
+    pub fn enc_it(&self) -> Arc<Mutex<Box<dyn EncIt>>> {
         self.enc_it.clone()
     }
 }

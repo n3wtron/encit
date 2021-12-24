@@ -1,0 +1,12 @@
+:host {
+  width: 100%;
+}
+mat-card-actions{
+  display: flex;
+  flex-direction: row;
+  justify-content: end;
+}
+
+mat-list-item:hover{
+  background-color: #EEEEEE;
+}

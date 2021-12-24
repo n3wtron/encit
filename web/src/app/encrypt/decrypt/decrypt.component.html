@@ -14,15 +14,15 @@
           <mat-form-field>
             <mat-label>Message</mat-label>
             <textarea
-              rows="10"
+              [(ngModel)]="message"
               matInput
               name="message"
-              [(ngModel)]="message"
+              rows="10"
             ></textarea>
           </mat-form-field>
         </div>
         <div class="bottom">
-          <button mat-raised-button color="primary" (click)="decryptMessage()">
+          <button (click)="decryptMessage()" color="primary" mat-raised-button>
             Decrypt
           </button>
         </div>
@@ -31,9 +31,9 @@
         <mat-expansion-panel-header>
           <mat-panel-title>File</mat-panel-title>
         </mat-expansion-panel-header>
-        <input type="file" name="file" (change)="uploadFile($event.target)">
+        <input (change)="uploadFile($event.target)" name="file" type="file">
         <div class="bottom">
-          <button mat-raised-button color="primary" (click)="decryptFile()">
+          <button (click)="decryptFile()" color="primary" mat-raised-button>
             Decrypt
           </button>
         </div>
@@ -46,19 +46,20 @@
         {{result.subject}}
       </mat-card-title>
       <mat-card-subtitle>
-        From: {{result.sender}}
+        <div>From: {{result.sender}}</div>
+        <div>To: {{result.receiver}}</div>
       </mat-card-subtitle>
       <mat-card-content>
         <div *ngIf="result.messageType!=='FILE'">
           {{result.payload}}
         </div>
-
       </mat-card-content>
       <mat-card-actions class="bottom">
-        <button mat-raised-button color="primary" *ngIf="result.messageType==='FILE'" (click)="download()">
+        <button (click)="download()" *ngIf="result.messageType==='FILE'" color="primary"
+                mat-raised-button>
           Download
         </button>
-        <button mat-raised-button color="accent" (click)="reset()">
+        <button (click)="reset()" color="accent" mat-raised-button>
           Reset
         </button>
       </mat-card-actions>

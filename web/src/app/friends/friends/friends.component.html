@@ -1,0 +1,37 @@
+<mat-toolbar color="primary">Friends</mat-toolbar>
+
+<div class="padded-content">
+  <mat-card class="centered-content">
+    <mat-card-content>
+      <mat-list>
+        <mat-list-item *ngFor="let identity of friends">
+          <mat-icon mat-list-icon>perm_identity</mat-icon>
+          <span style="display: flex; align-items: center; width: 100%;">
+            {{identity.name}}
+            <span class="space-invader"></span>
+            <button mat-icon-button color="primary" matTooltip="Export Public Key"
+                    [matMenuTriggerFor]="menu">
+              <mat-icon>save_alt</mat-icon>
+            </button>
+            <mat-menu #menu="matMenu">
+              <button mat-menu-item (click)="exportPublicKeyToFile(identity)">
+                <mat-icon>file_copy</mat-icon>
+                <span>To File</span>
+              </button>
+              <button mat-menu-item (click)="exportPublicKeyToClipboard(identity)">
+                <mat-icon>content_copy</mat-icon>
+                <span>To Clipboard</span>
+              </button>
+            </mat-menu>
+          </span>
+        </mat-list-item>
+      </mat-list>
+    </mat-card-content>
+    <mat-card-actions>
+      <button mat-raised-button color="primary" (click)="open_add_friend_dialog()">
+        <mat-icon>person_add</mat-icon>
+        <span>Add Friend</span>
+      </button>
+    </mat-card-actions>
+  </mat-card>
+</div>

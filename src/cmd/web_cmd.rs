@@ -1,10 +1,10 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use clap::{App, Arg, ArgMatches, SubCommand};
 use futures::executor::block_on;
 
 use crate::api::server::WebServer;
-use crate::enc::EncItImpl;
+use crate::enc::{EncIt, EncItImpl};
 use crate::{EncItConfig, EncItError};
 
 pub fn web_cmd<'a>() -> App<'a, 'a> {
@@ -23,7 +23,7 @@ pub fn web_exec<'a>(
     let port = arg_matches.value_of("port").unwrap();
     let host = format!("localhost:{}", port);
     println!("Starting server http://{}", &host);
-    let enc_it = Arc::new(EncItImpl::new(config));
+    let enc_it: Arc<Mutex<Box<dyn EncIt>>> = Arc::new(Mutex::new(Box::new(EncItImpl::new(config))));
     let server = Box::leak(Box::new(WebServer::new(&host, enc_it)));
     block_on(server.start())
 }

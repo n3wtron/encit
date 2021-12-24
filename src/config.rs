@@ -2,6 +2,7 @@ use std::fs;
 use std::fs::read_to_string;
 use std::io::Write;
 use std::path::Path;
+use std::sync::Arc;
 
 use config::{Config, File};
 use log::debug;
@@ -174,13 +175,14 @@ pub trait EncItConfig: Sync + Send {
         &self,
         friend_name: &str,
         public_key: &EncItPEM,
-    ) -> Result<Box<dyn EncItConfig>, EncItError>;
+    ) -> Result<Arc<dyn EncItConfig>, EncItError>;
     fn add_identity<'a>(
         &self,
         identity_name: &'a str,
         private_key: &EncItPEM,
         passphrase: Option<&'a str>,
-    ) -> Result<Box<dyn EncItConfig>, EncItError>;
+    ) -> Result<Arc<dyn EncItConfig>, EncItError>;
+    fn new_identity(&self, identity_name: &str) -> Result<Arc<dyn EncItConfig>, EncItError>;
     fn identities(&self) -> &Vec<EncItIdentity>;
     fn save(&self) -> Result<(), EncItError>;
 }
@@ -261,7 +263,7 @@ impl EncItConfig for EncItConfigImpl {
         &self,
         friend_name: &str,
         public_key: &EncItPEM,
-    ) -> Result<Box<dyn EncItConfig>, EncItError> {
+    ) -> Result<Arc<dyn EncItConfig>, EncItError> {
         if self.friend(friend_name).is_some() {
             return Err(EncItError::FriendAlreadyExist());
         }
@@ -273,7 +275,7 @@ impl EncItConfig for EncItConfigImpl {
         new_friends.extend(self.friends.to_vec());
         new_friends.extend(vec![friend]);
 
-        Ok(Box::new(EncItConfigImpl {
+        Ok(Arc::new(EncItConfigImpl {
             path: self.path.clone(),
             identities: self.identities.to_vec(),
             friends: new_friends,
@@ -285,7 +287,7 @@ impl EncItConfig for EncItConfigImpl {
         identity_name: &'a str,
         private_key: &EncItPEM,
         passphrase: Option<&'a str>,
-    ) -> Result<Box<dyn EncItConfig>, EncItError> {
+    ) -> Result<Arc<dyn EncItConfig>, EncItError> {
         if self.identity(identity_name).is_some() {
             return Err(EncItError::IdentityAlreadyExist());
         }
@@ -300,11 +302,17 @@ impl EncItConfig for EncItConfigImpl {
         new_identities.extend(self.identities.to_vec());
         new_identities.extend(vec![identity]);
 
-        Ok(Box::new(EncItConfigImpl {
+        Ok(Arc::new(EncItConfigImpl {
             path: self.path.clone(),
             identities: new_identities,
             friends: self.friends.to_vec(),
         }))
+    }
+
+    fn new_identity(&self, identity_name: &str) -> Result<Arc<dyn EncItConfig>, EncItError> {
+        let key = Rsa::generate(2048)?;
+        let key = EncItPEM::Hex(hex::encode(key.private_key_to_pem()?));
+        self.add_identity(identity_name, &key, None)
     }
 
     fn identities(&self) -> &Vec<EncItIdentity> {

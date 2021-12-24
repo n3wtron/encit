@@ -160,7 +160,7 @@ mod tests {
             .returning(|_, _, _| {
                 let mut new_cfg = MockEncItConfig::new();
                 new_cfg.expect_save().returning(|| Ok(()));
-                Ok(Box::new(new_cfg))
+                Ok(Arc::new(new_cfg))
             });
 
         let cfg: Arc<dyn EncItConfig> = Arc::new(cfg_mock);

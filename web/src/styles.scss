@@ -22,5 +22,17 @@ a:hover {
 }
 
 .padded-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   padding: 5px;
+}
+
+.centered-content {
+  width: 800px;
+  max-width: 800px;
+}
+
+.no-padded-dialog .mat-dialog-container{
+  padding: 0;
 }

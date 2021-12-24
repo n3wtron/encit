@@ -24,7 +24,7 @@ export class FriendSelectComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.friendService.getIdentities().subscribe(friends => this.friends = friends);
+    this.friendService.getFriends().subscribe(friends => this.friends = friends);
   }
 
 }

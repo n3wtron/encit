@@ -69,7 +69,7 @@ export class EncryptComponent implements OnInit {
             } else {
               if (this.clipboard.copy(result)) {
                 this._snackBar.open('Copied to clipboard', undefined, {
-                  duration: 5,
+                  duration: 1000,
                 });
               }
             }

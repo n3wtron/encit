@@ -31,7 +31,7 @@ impl WebServer {
 
         let message_type =
             MessageType::from_str(&body.message_type).unwrap_or(MessageType::Unknown);
-        match self.enc_it().encrypt(
+        match self.enc_it().lock().unwrap().encrypt(
             &body.identity,
             &body.friend,
             subject,
@@ -46,6 +46,8 @@ impl WebServer {
     pub async fn decrypt(&self, body: web::Json<DecryptRequest>) -> impl Responder {
         match self
             .enc_it()
+            .lock()
+            .unwrap()
             .decrypt(&body.message, body.identity.as_deref())
         {
             Ok(message) => HttpResponse::Ok().json(message),
