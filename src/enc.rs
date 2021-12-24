@@ -218,7 +218,10 @@ impl EncItImpl {
         if let Some(subject) = subject {
             jwe_header.set_subject(subject);
         }
-        jwe_header.set_claim("rcp", Some(friend.public_key().sha_pem()?.into()))?;
+        jwe_header.set_claim(
+            "rcp",
+            Some(friend.public_key().public_key_sha_pem()?.into()),
+        )?;
         jwe_header.set_claim("type", Some(message_type.into()))?;
         let mut payload = JwtPayload::new();
         payload.set_issuer(identity_pub_key_sha);
@@ -297,8 +300,9 @@ pub mod tests {
             generate_identity(encrypt_identity_name, None);
         let encrypt_friend = Box::leak(encrypt_friend);
         let encrypt_identity = Box::leak(encrypt_identity);
-        let encrypt_friend_public_key_sha =
-            Box::leak(Box::new(encrypt_friend.public_key().sha_pem().unwrap()));
+        let encrypt_friend_public_key_sha = Box::leak(Box::new(
+            encrypt_friend.public_key().public_key_sha_pem().unwrap(),
+        ));
         let encrypt_identity_public_key_sha = Box::leak(Box::new(
             encrypt_identity.private_key().public_key_pem_sha().unwrap(),
         ));

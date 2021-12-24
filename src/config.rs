@@ -61,9 +61,9 @@ impl EncItPEM {
         Ok(hex::encode(self.pem()?))
     }
 
-    pub fn sha_pem(&self) -> Result<String, EncItError> {
+    pub fn public_key_sha_pem(&self) -> Result<String, EncItError> {
         let mut sha = Sha256::new();
-        sha.update(self.pem()?.as_slice());
+        sha.update(self.public_key()?.public_key_to_pem()?.as_slice());
         Ok(hex::encode(sha.finish()))
     }
 }
@@ -249,7 +249,7 @@ impl EncItConfig for EncItConfigImpl {
         self.friends.iter().find(|friend| {
             let pub_key_sha = friend
                 .public_key
-                .sha_pem()
+                .public_key_sha_pem()
                 .unwrap_or_else(|_| panic!("cannot get public key for identity {}", friend.name));
             pub_key_sha == identity_public_key_sha
         })
